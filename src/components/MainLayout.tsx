@@ -18,7 +18,7 @@ import {
 type ViewType = "fixture" | "tabla";
 
 export const MainLayout = () => {
-  const [activeTab, setActiveTab] = useState<ViewType>("tabla");
+  const [activeTab, setActiveTab] = useState<ViewType>("fixture");
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   
   const {

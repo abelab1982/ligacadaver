@@ -165,11 +165,97 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
         </TooltipProvider>
       )}
 
-      <div className="flex items-center gap-2">
+      {/* Mobile Layout: Vertical Stack */}
+      <div className="flex flex-col gap-3 md:hidden">
+        {/* Teams Row */}
+        <div className="flex items-center justify-between gap-2">
+          {/* Home Team */}
+          <div className="flex-1 flex items-center gap-2">
+            <div 
+              className="w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 shadow-md"
+              style={{ 
+                backgroundColor: homeTeam.primaryColor,
+                color: getContrastColor(homeTeam.primaryColor)
+              }}
+            >
+              {homeTeam.abbreviation}
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium leading-tight">
+                {homeTeam.name}
+              </span>
+              {isAltitude && (
+                <span className="text-[10px] text-amber-400">Local</span>
+              )}
+            </div>
+          </div>
+          
+          <span className="text-muted-foreground font-bold">VS</span>
+          
+          {/* Away Team */}
+          <div className="flex-1 flex items-center gap-2 justify-end">
+            <div className="flex flex-col items-end">
+              <span className="text-sm font-medium leading-tight text-right">
+                {awayTeam.name}
+              </span>
+            </div>
+            <div 
+              className="w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 shadow-md"
+              style={{ 
+                backgroundColor: awayTeam.primaryColor,
+                color: getContrastColor(awayTeam.primaryColor)
+              }}
+            >
+              {awayTeam.abbreviation}
+            </div>
+          </div>
+        </div>
+
+        {/* Score Row */}
+        <div className="flex items-center justify-center gap-2">
+          {isPlayed ? (
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center text-2xl font-bold">
+                {match.homeScore}
+              </div>
+              <Lock className="w-4 h-4 text-muted-foreground" />
+              <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center text-2xl font-bold">
+                {match.awayScore}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <GoalStepper value={localHome} onChange={handleHomeChange} />
+              <span className="text-muted-foreground text-lg font-bold">-</span>
+              <GoalStepper value={localAway} onChange={handleAwayChange} />
+              <Button
+                size="icon"
+                variant={hasInteracted ? "default" : "ghost"}
+                className="w-10 h-10 shrink-0 ml-2"
+                onClick={handleConfirm}
+              >
+                <Check className="w-5 h-5" />
+              </Button>
+            </div>
+          )}
+        </div>
+        
+        {/* Status indicator */}
+        {isPlayed && (
+          <div className="text-center">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+              Resultado Final
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop Layout: Horizontal */}
+      <div className="hidden md:flex items-center gap-2">
         {/* Home Team */}
         <div className="flex-1 flex items-center gap-2 justify-end">
           <div className="flex flex-col items-end">
-            <span className="text-xs font-medium truncate max-w-[70px] md:max-w-none">
+            <span className="text-xs font-medium">
               {homeTeam.name}
             </span>
             {isAltitude && (
@@ -219,7 +305,7 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
           >
             {awayTeam.abbreviation}
           </div>
-          <span className="text-xs font-medium truncate max-w-[70px] md:max-w-none">
+          <span className="text-xs font-medium">
             {awayTeam.name}
           </span>
         </div>
@@ -237,9 +323,9 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
         )}
       </div>
       
-      {/* Status indicator */}
+      {/* Status indicator - Desktop only */}
       {isPlayed && (
-        <div className="mt-2 text-center">
+        <div className="hidden md:block mt-2 text-center">
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
             Resultado Final
           </span>
