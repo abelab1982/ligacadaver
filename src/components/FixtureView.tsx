@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Match, TeamStats } from "@/hooks/useLeagueEngine";
 import { useState, useEffect, useRef } from "react";
 import { TeamLogo } from "@/components/TeamLogo";
+import { Footer } from "./Footer";
 import {
   Tooltip,
   TooltipContent,
@@ -441,6 +442,9 @@ export const FixtureView = ({
             })}
           </motion.div>
         </AnimatePresence>
+        
+        {/* Footer */}
+        <Footer />
       </div>
     </div>
   );

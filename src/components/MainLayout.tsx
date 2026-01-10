@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Calendar, Trophy, Share2 } from "lucide-react";
 import { Header } from "./Header";
+import { Footer } from "./Footer";
 import { FixtureView } from "./FixtureView";
 import { StandingsView } from "./StandingsView";
 import { ShareDialog } from "./ShareDialog";
