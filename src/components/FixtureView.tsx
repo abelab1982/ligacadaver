@@ -1,9 +1,15 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Check, Lock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Lock, Minus, Plus, Mountain, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Match, TeamStats } from "@/hooks/useLeagueEngine";
 import { useState, useEffect } from "react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface FixtureViewProps {
   matches: Match[];
@@ -24,6 +30,58 @@ const getContrastColor = (hexColor: string): string => {
   return luminance > 0.5 ? '#000000' : '#FFFFFF';
 };
 
+// Check if match is played at altitude (home team's city)
+const isAltitudeMatch = (homeTeam: TeamStats): boolean => {
+  return homeTeam.altitude >= 2500;
+};
+
+interface GoalStepperProps {
+  value: number;
+  onChange: (value: number) => void;
+  disabled?: boolean;
+}
+
+const GoalStepper = ({ value, onChange, disabled }: GoalStepperProps) => {
+  const handleDecrement = () => {
+    if (value > 0) onChange(value - 1);
+  };
+
+  const handleIncrement = () => {
+    if (value < 15) onChange(value + 1);
+  };
+
+  return (
+    <div className="flex items-center gap-0.5">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="w-8 h-8 rounded-full bg-muted/50 hover:bg-muted text-foreground"
+        onClick={handleDecrement}
+        disabled={disabled || value <= 0}
+      >
+        <Minus className="w-4 h-4" />
+      </Button>
+      <motion.div 
+        key={value}
+        initial={{ scale: 1.3 }}
+        animate={{ scale: 1 }}
+        className="w-8 h-8 rounded-md bg-primary/10 border border-primary/30 flex items-center justify-center text-lg font-bold text-primary"
+      >
+        {value}
+      </motion.div>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="w-8 h-8 rounded-full bg-muted/50 hover:bg-muted text-foreground"
+        onClick={handleIncrement}
+        disabled={disabled || value >= 15}
+      >
+        <Plus className="w-4 h-4" />
+      </Button>
+    </div>
+  );
+};
+
 interface MatchCardProps {
   match: Match;
   homeTeam: TeamStats;
@@ -33,53 +91,54 @@ interface MatchCardProps {
 }
 
 const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmResult }: MatchCardProps) => {
-  const [localHome, setLocalHome] = useState<string>(
+  const [localHome, setLocalHome] = useState<number>(
     match.homePrediction !== null && match.homePrediction !== undefined 
-      ? String(match.homePrediction) 
-      : ""
+      ? match.homePrediction 
+      : 0
   );
-  const [localAway, setLocalAway] = useState<string>(
+  const [localAway, setLocalAway] = useState<number>(
     match.awayPrediction !== null && match.awayPrediction !== undefined 
-      ? String(match.awayPrediction) 
-      : ""
+      ? match.awayPrediction 
+      : 0
+  );
+  const [hasInteracted, setHasInteracted] = useState(
+    match.homePrediction !== null || match.awayPrediction !== null
   );
 
-  // Sync with external state
   useEffect(() => {
-    setLocalHome(
-      match.homePrediction !== null && match.homePrediction !== undefined 
-        ? String(match.homePrediction) 
-        : ""
-    );
-    setLocalAway(
-      match.awayPrediction !== null && match.awayPrediction !== undefined 
-        ? String(match.awayPrediction) 
-        : ""
-    );
+    if (match.homePrediction !== null && match.homePrediction !== undefined) {
+      setLocalHome(match.homePrediction);
+      setHasInteracted(true);
+    }
+    if (match.awayPrediction !== null && match.awayPrediction !== undefined) {
+      setLocalAway(match.awayPrediction);
+      setHasInteracted(true);
+    }
+    if (match.homePrediction === null && match.awayPrediction === null) {
+      setLocalHome(0);
+      setLocalAway(0);
+      setHasInteracted(false);
+    }
   }, [match.homePrediction, match.awayPrediction]);
 
   const isPlayed = match.status === "played";
-  const hasPrediction = localHome !== "" && localAway !== "";
+  const isAltitude = isAltitudeMatch(homeTeam);
 
-  const handleHomeChange = (value: string) => {
-    const numValue = value === "" ? "" : value.replace(/\D/g, "").slice(0, 2);
-    setLocalHome(numValue);
-    const numericValue = numValue === "" ? null : parseInt(numValue, 10);
-    const awayValue = localAway === "" ? null : parseInt(localAway, 10);
-    onUpdatePrediction(match.id, numericValue, awayValue);
+  const handleHomeChange = (value: number) => {
+    setLocalHome(value);
+    setHasInteracted(true);
+    onUpdatePrediction(match.id, value, localAway);
   };
 
-  const handleAwayChange = (value: string) => {
-    const numValue = value === "" ? "" : value.replace(/\D/g, "").slice(0, 2);
-    setLocalAway(numValue);
-    const homeValue = localHome === "" ? null : parseInt(localHome, 10);
-    const numericValue = numValue === "" ? null : parseInt(numValue, 10);
-    onUpdatePrediction(match.id, homeValue, numericValue);
+  const handleAwayChange = (value: number) => {
+    setLocalAway(value);
+    setHasInteracted(true);
+    onUpdatePrediction(match.id, localHome, value);
   };
 
   const handleConfirm = () => {
-    if (hasPrediction) {
-      onConfirmResult(match.id, parseInt(localHome, 10), parseInt(localAway, 10));
+    if (hasInteracted) {
+      onConfirmResult(match.id, localHome, localAway);
     }
   };
 
@@ -89,14 +148,36 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
         ? "bg-muted/30 border-muted" 
         : "bg-card/50 border-border hover:border-primary/30"
     }`}>
+      {/* Altitude Indicator */}
+      {isAltitude && !isPlayed && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1 text-amber-400 text-[10px] mb-2 justify-center">
+                <Mountain className="w-3 h-3" />
+                <span>Partido en Altura ({homeTeam.altitude}m)</span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Partido en Altura - {homeTeam.city} ({homeTeam.altitude}m)</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+
       <div className="flex items-center gap-2">
         {/* Home Team */}
         <div className="flex-1 flex items-center gap-2 justify-end">
-          <span className="text-xs text-muted-foreground truncate max-w-[80px] md:max-w-none">
-            {homeTeam.name}
-          </span>
+          <div className="flex flex-col items-end">
+            <span className="text-xs font-medium truncate max-w-[70px] md:max-w-none">
+              {homeTeam.name}
+            </span>
+            {isAltitude && (
+              <span className="text-[10px] text-amber-400">Local</span>
+            )}
+          </div>
           <div 
-            className="w-8 h-8 rounded-md flex items-center justify-center text-xs font-bold shrink-0"
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 shadow-md"
             style={{ 
               backgroundColor: homeTeam.primaryColor,
               color: getContrastColor(homeTeam.primaryColor)
@@ -107,44 +188,30 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
         </div>
 
         {/* Score */}
-        <div className="flex items-center gap-1 px-2">
+        <div className="flex items-center gap-1 px-1">
           {isPlayed ? (
-            <>
-              <div className="w-8 h-8 rounded bg-muted flex items-center justify-center text-sm font-bold">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-xl font-bold">
                 {match.homeScore}
               </div>
-              <Lock className="w-3 h-3 text-muted-foreground mx-1" />
-              <div className="w-8 h-8 rounded bg-muted flex items-center justify-center text-sm font-bold">
+              <Lock className="w-3 h-3 text-muted-foreground" />
+              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-xl font-bold">
                 {match.awayScore}
               </div>
-            </>
+            </div>
           ) : (
-            <>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={localHome}
-                onChange={(e) => handleHomeChange(e.target.value)}
-                className="w-8 h-8 rounded bg-background border border-border text-center text-sm font-bold focus:border-primary focus:ring-1 focus:ring-primary outline-none"
-                placeholder="-"
-              />
-              <span className="text-muted-foreground text-xs">vs</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={localAway}
-                onChange={(e) => handleAwayChange(e.target.value)}
-                className="w-8 h-8 rounded bg-background border border-border text-center text-sm font-bold focus:border-primary focus:ring-1 focus:ring-primary outline-none"
-                placeholder="-"
-              />
-            </>
+            <div className="flex items-center gap-2">
+              <GoalStepper value={localHome} onChange={handleHomeChange} />
+              <span className="text-muted-foreground text-xs font-medium">-</span>
+              <GoalStepper value={localAway} onChange={handleAwayChange} />
+            </div>
           )}
         </div>
 
         {/* Away Team */}
         <div className="flex-1 flex items-center gap-2">
           <div 
-            className="w-8 h-8 rounded-md flex items-center justify-center text-xs font-bold shrink-0"
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 shadow-md"
             style={{ 
               backgroundColor: awayTeam.primaryColor,
               color: getContrastColor(awayTeam.primaryColor)
@@ -152,7 +219,7 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
           >
             {awayTeam.abbreviation}
           </div>
-          <span className="text-xs text-muted-foreground truncate max-w-[80px] md:max-w-none">
+          <span className="text-xs font-medium truncate max-w-[70px] md:max-w-none">
             {awayTeam.name}
           </span>
         </div>
@@ -161,9 +228,8 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
         {!isPlayed && (
           <Button
             size="icon"
-            variant={hasPrediction ? "default" : "ghost"}
-            className="w-7 h-7 shrink-0"
-            disabled={!hasPrediction}
+            variant={hasInteracted ? "default" : "ghost"}
+            className="w-8 h-8 shrink-0"
             onClick={handleConfirm}
           >
             <Check className="w-4 h-4" />
@@ -195,6 +261,17 @@ export const FixtureView = ({
   const playedCount = matches.filter(m => m.status === "played").length;
   const pendingCount = matches.length - playedCount;
 
+  // Generate random results for all pending matches
+  const handleMagicWand = () => {
+    matches.forEach((match) => {
+      if (match.status === "pending") {
+        const homeScore = Math.floor(Math.random() * 5);
+        const awayScore = Math.floor(Math.random() * 5);
+        onUpdatePrediction(match.id, homeScore, awayScore);
+      }
+    });
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Round Navigation */}
@@ -209,15 +286,38 @@ export const FixtureView = ({
             <ChevronLeft className="w-5 h-5" />
           </Button>
           
-          <div className="text-center">
-            <h3 className="font-bold text-lg">Fecha {currentRound}</h3>
-            <div className="flex gap-3 text-xs text-muted-foreground justify-center">
-              <span className="flex items-center gap-1">
-                <Lock className="w-3 h-3" />
-                {playedCount} jugados
-              </span>
-              <span>{pendingCount} pendientes</span>
+          <div className="text-center flex items-center gap-2">
+            <div>
+              <h3 className="font-bold text-lg">Fecha {currentRound}</h3>
+              <div className="flex gap-3 text-xs text-muted-foreground justify-center">
+                <span className="flex items-center gap-1">
+                  <Lock className="w-3 h-3" />
+                  {playedCount} jugados
+                </span>
+                <span>{pendingCount} pendientes</span>
+              </div>
             </div>
+            
+            {/* Magic Wand Button */}
+            {pendingCount > 0 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="w-8 h-8 text-amber-400 hover:text-amber-300 hover:bg-amber-400/10"
+                      onClick={handleMagicWand}
+                    >
+                      <Wand2 className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Autocompletar resultados aleatorios</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
           
           <Button
