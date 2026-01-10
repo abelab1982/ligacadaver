@@ -200,10 +200,6 @@ export const StandingsView = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="text-sm">
-              <span className="text-muted-foreground">Partidos: </span>
-              <span className="font-bold">{stats.matchesPlayed}</span>
-            </div>
-            <div className="text-sm hidden sm:block">
               <span className="text-muted-foreground">Goles: </span>
               <span className="font-bold">{stats.totalGoals}</span>
             </div>
