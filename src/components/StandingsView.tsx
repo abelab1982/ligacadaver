@@ -107,14 +107,7 @@ const TeamRow = ({ team, position, showPredictions, onUpdateFairPlay }: TeamRowP
           >
             {team.abbreviation}
           </div>
-          <div className="flex flex-col min-w-0">
-            <span className="text-sm font-medium truncate">{team.name}</span>
-            {statusBadge && (
-              <span className={`text-[10px] ${statusBadge.class}`}>
-                {statusBadge.label}
-              </span>
-            )}
-          </div>
+          <span className="text-sm font-medium truncate">{team.name}</span>
         </div>
       </td>
 
