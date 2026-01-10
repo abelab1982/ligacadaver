@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Minus, Plus, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Match, TeamStats } from "@/hooks/useLeagueEngine";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { TeamLogo } from "@/components/TeamLogo";
 import {
   Tooltip,
@@ -34,6 +34,13 @@ interface GoalStepperProps {
 const GoalStepper = ({ value, onChange, onActivate, disabled }: GoalStepperProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.select();
+    }
+  }, [isEditing]);
 
   const handleDecrement = () => {
     if (value !== null && value > 0) onChange(value - 1);
@@ -95,6 +102,7 @@ const GoalStepper = ({ value, onChange, onActivate, disabled }: GoalStepperProps
       
       {isEditing ? (
         <input
+          ref={inputRef}
           type="text"
           value={inputValue}
           onChange={handleInputChange}
