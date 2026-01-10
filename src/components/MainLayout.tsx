@@ -56,7 +56,7 @@ export const MainLayout = () => {
                 className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-none border-b-2 border-transparent data-[state=active]:border-primary gap-2"
               >
                 <Calendar className="w-4 h-4" />
-                Fixture
+                Fixture - Apertura
               </TabsTrigger>
               <TabsTrigger 
                 value="tabla"
@@ -77,7 +77,7 @@ export const MainLayout = () => {
             <div className="w-1/2 border-r border-border flex flex-col">
               <div className="px-4 py-3 border-b border-border bg-card/30 flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-primary" />
-                <h2 className="font-semibold">Fixture</h2>
+                <h2 className="font-semibold">Fixture - Apertura</h2>
               </div>
               <div className="flex-1 overflow-hidden">
                 <FixtureView 
@@ -96,7 +96,7 @@ export const MainLayout = () => {
             <div className="w-1/2 flex flex-col">
               <div className="px-4 py-3 border-b border-border bg-card/30 flex items-center gap-2">
                 <Trophy className="w-4 h-4 text-primary" />
-                <h2 className="font-semibold">Tabla de Posiciones</h2>
+                <h2 className="font-semibold">Tabla de Posiciones - Apertura</h2>
               </div>
               <div className="flex-1 overflow-hidden">
                 <StandingsView 
