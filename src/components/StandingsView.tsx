@@ -1,8 +1,14 @@
-import { motion, AnimatePresence } from "framer-motion";
-import { RotateCcw, Eye, EyeOff } from "lucide-react";
+import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
+import { RotateCcw, Eye, EyeOff, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TeamStats } from "@/hooks/useLeagueEngine";
 import { getStatusBadge } from "@/data/teams";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface StandingsViewProps {
   teams: TeamStats[];
@@ -10,6 +16,7 @@ interface StandingsViewProps {
   onTogglePredictions: () => void;
   onReset: () => void;
   onResetPredictions: () => void;
+  onUpdateFairPlay: (teamId: string, value: number) => void;
   stats: {
     matchesPlayed: number;
     totalGoals: number;
@@ -26,31 +33,25 @@ const getContrastColor = (hexColor: string): string => {
   return luminance > 0.5 ? '#000000' : '#FFFFFF';
 };
 
-const getPositionClass = (position: number): string => {
-  if (position === 1) return "position-champion";
-  if (position >= 2 && position <= 4) return "position-libertadores";
-  if (position >= 5 && position <= 6) return "position-sudamericana";
-  if (position >= 16) return "position-relegation";
-  return "";
-};
-
-const getPositionIndicator = (position: number): string => {
-  if (position === 1) return "🏆";
-  if (position >= 2 && position <= 4) return "🔵";
-  if (position >= 5 && position <= 6) return "🟡";
-  if (position >= 16) return "🔴";
-  return "";
+// Position zone colors based on user requirements
+const getZoneIndicator = (position: number): { color: string; label: string; emoji: string } => {
+  if (position === 1) return { color: "bg-amber-500", label: "Campeón", emoji: "🏆" };
+  if (position >= 2 && position <= 4) return { color: "bg-green-500", label: "Libertadores", emoji: "" };
+  if (position >= 5 && position <= 8) return { color: "bg-blue-500", label: "Sudamericana", emoji: "" };
+  if (position >= 16) return { color: "bg-red-500", label: "Descenso", emoji: "" };
+  return { color: "bg-transparent", label: "", emoji: "" };
 };
 
 interface TeamRowProps {
   team: TeamStats;
   position: number;
   showPredictions: boolean;
+  onUpdateFairPlay: (teamId: string, value: number) => void;
 }
 
-const TeamRow = ({ team, position, showPredictions }: TeamRowProps) => {
+const TeamRow = ({ team, position, showPredictions, onUpdateFairPlay }: TeamRowProps) => {
   const statusBadge = getStatusBadge(team.status);
-  const positionClass = getPositionClass(position);
+  const zone = getZoneIndicator(position);
   
   const played = showPredictions ? team.predictedPlayed : team.played;
   const won = showPredictions ? team.predictedWon : team.won;
@@ -64,25 +65,40 @@ const TeamRow = ({ team, position, showPredictions }: TeamRowProps) => {
   return (
     <motion.tr
       layout
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3 }}
-      className={`border-b border-border/50 hover:bg-muted/30 transition-colors ${positionClass}`}
+      layoutId={team.id}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ 
+        layout: { type: "spring", stiffness: 350, damping: 30 },
+        opacity: { duration: 0.2 }
+      }}
+      className="border-b border-border/30 hover:bg-muted/20 transition-colors group"
     >
-      {/* Position */}
-      <td className="py-2 px-2 text-center">
-        <div className="flex items-center justify-center gap-1">
-          <span className="font-bold text-sm">{position}</span>
-          <span className="text-xs">{getPositionIndicator(position)}</span>
+      {/* Zone Indicator + Position */}
+      <td className="py-2.5 px-0 relative">
+        <div className="flex items-center">
+          {/* Color bar indicator */}
+          <div className={`absolute left-0 top-1 bottom-1 w-1 rounded-r-full ${zone.color}`} />
+          <div className="pl-3 flex items-center justify-center gap-1 min-w-[40px]">
+            <motion.span 
+              key={position}
+              initial={{ scale: 1.3 }}
+              animate={{ scale: 1 }}
+              className="font-bold text-sm"
+            >
+              {position}
+            </motion.span>
+            {zone.emoji && <span className="text-sm">{zone.emoji}</span>}
+          </div>
         </div>
       </td>
 
       {/* Team */}
-      <td className="py-2 px-2">
+      <td className="py-2.5 px-2">
         <div className="flex items-center gap-2">
           <div 
-            className="w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold shrink-0"
+            className="w-7 h-7 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0 shadow-sm"
             style={{ 
               backgroundColor: team.primaryColor,
               color: getContrastColor(team.primaryColor)
@@ -102,19 +118,55 @@ const TeamRow = ({ team, position, showPredictions }: TeamRowProps) => {
       </td>
 
       {/* Stats */}
-      <td className="py-2 px-1 text-center text-sm text-muted-foreground hidden sm:table-cell">{played}</td>
-      <td className="py-2 px-1 text-center text-sm text-green-400 hidden md:table-cell">{won}</td>
-      <td className="py-2 px-1 text-center text-sm text-yellow-400 hidden md:table-cell">{drawn}</td>
-      <td className="py-2 px-1 text-center text-sm text-red-400 hidden md:table-cell">{lost}</td>
-      <td className="py-2 px-1 text-center text-sm hidden lg:table-cell">{gf}</td>
-      <td className="py-2 px-1 text-center text-sm hidden lg:table-cell">{ga}</td>
-      <td className="py-2 px-1 text-center text-sm font-medium">
+      <td className="py-2.5 px-1 text-center text-sm text-muted-foreground hidden sm:table-cell">{played}</td>
+      <td className="py-2.5 px-1 text-center text-sm text-green-400 hidden md:table-cell">{won}</td>
+      <td className="py-2.5 px-1 text-center text-sm text-yellow-400 hidden md:table-cell">{drawn}</td>
+      <td className="py-2.5 px-1 text-center text-sm text-red-400 hidden md:table-cell">{lost}</td>
+      <td className="py-2.5 px-1 text-center text-sm hidden lg:table-cell">{gf}</td>
+      <td className="py-2.5 px-1 text-center text-sm hidden lg:table-cell">{ga}</td>
+      <td className="py-2.5 px-1 text-center text-sm font-medium">
         <span className={gd > 0 ? "text-green-400" : gd < 0 ? "text-red-400" : "text-muted-foreground"}>
           {gd > 0 ? `+${gd}` : gd}
         </span>
       </td>
-      <td className="py-2 px-2 text-center">
-        <span className="font-bold text-primary text-lg">{points}</span>
+      
+      {/* Fair Play (editable) */}
+      <td className="py-2.5 px-1 text-center hidden xl:table-cell">
+        <div className="flex items-center justify-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-5 h-5 rounded-full"
+            onClick={() => onUpdateFairPlay(team.id, team.fairPlay - 1)}
+            disabled={team.fairPlay <= 0}
+          >
+            <Minus className="w-3 h-3" />
+          </Button>
+          <span className={`w-6 text-xs font-medium ${team.fairPlay > 0 ? "text-orange-400" : "text-muted-foreground"}`}>
+            {team.fairPlay}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-5 h-5 rounded-full"
+            onClick={() => onUpdateFairPlay(team.id, team.fairPlay + 1)}
+          >
+            <Plus className="w-3 h-3" />
+          </Button>
+        </div>
+      </td>
+
+      {/* Points */}
+      <td className="py-2.5 px-2 text-center">
+        <motion.span
+          key={points}
+          initial={{ scale: 1.4, color: "hsl(var(--primary))" }}
+          animate={{ scale: 1, color: "hsl(var(--primary))" }}
+          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          className="font-bold text-primary text-lg tabular-nums"
+        >
+          {points}
+        </motion.span>
       </td>
     </motion.tr>
   );
@@ -126,6 +178,7 @@ export const StandingsView = ({
   onTogglePredictions,
   onReset,
   onResetPredictions,
+  onUpdateFairPlay,
   stats,
 }: StandingsViewProps) => {
   return (
@@ -175,30 +228,58 @@ export const StandingsView = ({
 
       {/* Legend */}
       <div className="px-3 py-2 border-b border-border bg-card/20 flex flex-wrap gap-3 text-[10px]">
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-champion"></span>
-          Campeón
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-libertadores"></span>
-          Libertadores
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-sudamericana"></span>
-          Sudamericana
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-relegation"></span>
-          Descenso
-        </span>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex items-center gap-1.5 cursor-help">
+                <span className="w-1 h-3 rounded-full bg-amber-500"></span>
+                Campeón
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>Campeón Liga 1</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex items-center gap-1.5 cursor-help">
+                <span className="w-1 h-3 rounded-full bg-green-500"></span>
+                Libertadores
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>Copa Libertadores (2º-4º)</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex items-center gap-1.5 cursor-help">
+                <span className="w-1 h-3 rounded-full bg-blue-500"></span>
+                Sudamericana
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>Copa Sudamericana (5º-8º)</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex items-center gap-1.5 cursor-help">
+                <span className="w-1 h-3 rounded-full bg-red-500"></span>
+                Descenso
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>Zona de Descenso (16º-18º)</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {/* Table */}
       <div className="flex-1 overflow-y-auto">
         <table className="w-full">
-          <thead className="sticky top-0 bg-background/95 backdrop-blur-sm">
+          <thead className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
             <tr className="border-b border-border text-xs text-muted-foreground">
-              <th className="py-2 px-2 text-center w-10">#</th>
+              <th className="py-2 px-2 text-center w-12">#</th>
               <th className="py-2 px-2 text-left">Equipo</th>
               <th className="py-2 px-1 text-center hidden sm:table-cell">PJ</th>
               <th className="py-2 px-1 text-center hidden md:table-cell">G</th>
@@ -207,21 +288,25 @@ export const StandingsView = ({
               <th className="py-2 px-1 text-center hidden lg:table-cell">GF</th>
               <th className="py-2 px-1 text-center hidden lg:table-cell">GC</th>
               <th className="py-2 px-1 text-center">DG</th>
+              <th className="py-2 px-1 text-center hidden xl:table-cell">FP</th>
               <th className="py-2 px-2 text-center">Pts</th>
             </tr>
           </thead>
-          <tbody>
-            <AnimatePresence mode="popLayout">
-              {teams.map((team, index) => (
-                <TeamRow
-                  key={team.id}
-                  team={team}
-                  position={index + 1}
-                  showPredictions={showPredictions}
-                />
-              ))}
-            </AnimatePresence>
-          </tbody>
+          <LayoutGroup>
+            <tbody>
+              <AnimatePresence mode="popLayout">
+                {teams.map((team, index) => (
+                  <TeamRow
+                    key={team.id}
+                    team={team}
+                    position={index + 1}
+                    showPredictions={showPredictions}
+                    onUpdateFairPlay={onUpdateFairPlay}
+                  />
+                ))}
+              </AnimatePresence>
+            </tbody>
+          </LayoutGroup>
         </table>
       </div>
     </div>

@@ -31,6 +31,7 @@ export interface TeamStats extends Team {
   predictedGoalsAgainst: number;
   predictedPoints: number;
   predictedGoalDifference: number;
+  fairPlay: number;
 }
 
 const calculateTeamStats = (team: Team, rounds: Round[]) => {
@@ -80,9 +81,15 @@ const sortTeams = (teams: TeamStats[], usePredictions: boolean): TeamStats[] => 
     const bGD = usePredictions ? b.predictedGoalDifference : b.goalDifference;
     const aGF = usePredictions ? a.predictedGoalsFor : a.goalsFor;
     const bGF = usePredictions ? b.predictedGoalsFor : b.goalsFor;
+    // 1. Points
     if (bP !== aP) return bP - aP;
+    // 2. Goal Difference
     if (bGD !== aGD) return bGD - aGD;
+    // 3. Goals For
     if (bGF !== aGF) return bGF - aGF;
+    // 4. Fair Play (lower is better - fewer cards)
+    if (a.fairPlay !== b.fairPlay) return a.fairPlay - b.fairPlay;
+    // 5. Alphabetical
     return a.name.localeCompare(b.name);
   });
 };
@@ -96,11 +103,22 @@ export const useLeagueEngine = () => {
   );
   const [currentRound, setCurrentRound] = useState(1);
   const [showPredictions, setShowPredictions] = useState(true);
+  const [fairPlayScores, setFairPlayScores] = useState<Record<string, number>>(() => 
+    Object.fromEntries(initialTeams.map(t => [t.id, 0]))
+  );
 
   const teams = useMemo(() => {
-    const stats = initialTeams.map((t) => ({ ...t, ...calculateTeamStats(t, rounds) }));
+    const stats = initialTeams.map((t) => ({ 
+      ...t, 
+      ...calculateTeamStats(t, rounds),
+      fairPlay: fairPlayScores[t.id] || 0,
+    }));
     return sortTeams(stats, showPredictions);
-  }, [rounds, showPredictions]);
+  }, [rounds, showPredictions, fairPlayScores]);
+
+  const updateFairPlay = useCallback((teamId: string, value: number) => {
+    setFairPlayScores(prev => ({ ...prev, [teamId]: Math.max(0, value) }));
+  }, []);
 
   const updatePrediction = useCallback((matchId: string, homePrediction: number | null, awayPrediction: number | null) => {
     setRounds((prev) => prev.map((r) => ({ ...r, matches: r.matches.map((m) => m.id === matchId ? { ...m, homePrediction, awayPrediction } : m) })));
@@ -114,6 +132,10 @@ export const useLeagueEngine = () => {
     setRounds((prev) => prev.map((r) => ({ ...r, matches: r.matches.map((m) => ({ ...m, homePrediction: null, awayPrediction: null })) })));
   }, []);
 
+  const resetFairPlay = useCallback(() => {
+    setFairPlayScores(Object.fromEntries(initialTeams.map(t => [t.id, 0])));
+  }, []);
+
   const getTeamById = useCallback((id: string) => teams.find((t) => t.id === id), [teams]);
   const getMatchesByRound = useCallback((n: number) => rounds.find((r) => r.round === n)?.matches || [], [rounds]);
 
@@ -123,5 +145,9 @@ export const useLeagueEngine = () => {
     return { totalMatches: 306, matchesPlayed: totalPlayed, totalGoals, averageGoals: totalPlayed > 0 ? (totalGoals / totalPlayed).toFixed(2) : "0.00" };
   }, [rounds]);
 
-  return { rounds, teams, currentRound, totalRounds: fixtureData.totalRounds, showPredictions, stats, setCurrentRound, setShowPredictions, updatePrediction, confirmMatchResult, resetPredictions, getTeamById, getMatchesByRound };
+  return { 
+    rounds, teams, currentRound, totalRounds: fixtureData.totalRounds, showPredictions, stats, 
+    setCurrentRound, setShowPredictions, updatePrediction, confirmMatchResult, resetPredictions, 
+    getTeamById, getMatchesByRound, updateFairPlay, resetFairPlay 
+  };
 };
