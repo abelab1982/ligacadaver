@@ -25,18 +25,60 @@ interface FixtureViewProps {
 
 
 interface GoalStepperProps {
-  value: number;
+  value: number | null;
   onChange: (value: number) => void;
+  onActivate: () => void;
   disabled?: boolean;
 }
 
-const GoalStepper = ({ value, onChange, disabled }: GoalStepperProps) => {
+const GoalStepper = ({ value, onChange, onActivate, disabled }: GoalStepperProps) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [inputValue, setInputValue] = useState("");
+
   const handleDecrement = () => {
-    if (value > 0) onChange(value - 1);
+    if (value !== null && value > 0) onChange(value - 1);
   };
 
   const handleIncrement = () => {
-    if (value < 15) onChange(value + 1);
+    if (value === null) {
+      onActivate();
+    } else if (value < 15) {
+      onChange(value + 1);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val === "" || (/^\d+$/.test(val) && parseInt(val) <= 15)) {
+      setInputValue(val);
+    }
+  };
+
+  const handleInputBlur = () => {
+    setIsEditing(false);
+    if (inputValue !== "") {
+      const numVal = Math.min(15, Math.max(0, parseInt(inputValue) || 0));
+      if (value === null) {
+        onActivate();
+      }
+      onChange(numVal);
+    }
+    setInputValue("");
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleInputBlur();
+    }
+  };
+
+  const handleValueClick = () => {
+    if (value !== null && !disabled) {
+      setIsEditing(true);
+      setInputValue(value.toString());
+    } else if (value === null) {
+      onActivate();
+    }
   };
 
   return (
@@ -46,24 +88,43 @@ const GoalStepper = ({ value, onChange, disabled }: GoalStepperProps) => {
         size="icon"
         className="w-6 h-6 md:w-5 md:h-5 rounded-full bg-muted/50 hover:bg-muted text-foreground"
         onClick={handleDecrement}
-        disabled={disabled || value <= 0}
+        disabled={disabled || value === null || value <= 0}
       >
         <Minus className="w-3 h-3 md:w-2.5 md:h-2.5" />
       </Button>
-      <motion.div 
-        key={value}
-        initial={{ scale: 1.3 }}
-        animate={{ scale: 1 }}
-        className="w-6 h-6 md:w-5 md:h-5 rounded bg-primary/10 border border-primary/30 flex items-center justify-center text-sm md:text-xs font-bold text-primary"
-      >
-        {value}
-      </motion.div>
+      
+      {isEditing ? (
+        <input
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          onBlur={handleInputBlur}
+          onKeyDown={handleInputKeyDown}
+          autoFocus
+          className="w-6 h-6 md:w-5 md:h-5 rounded bg-primary/20 border border-primary text-center text-sm md:text-xs font-bold text-primary outline-none"
+        />
+      ) : (
+        <motion.div 
+          key={value ?? "empty"}
+          initial={{ scale: value !== null ? 1.3 : 1 }}
+          animate={{ scale: 1 }}
+          onClick={handleValueClick}
+          className={`w-6 h-6 md:w-5 md:h-5 rounded flex items-center justify-center text-sm md:text-xs font-bold cursor-pointer transition-colors ${
+            value !== null 
+              ? "bg-primary/10 border border-primary/30 text-primary" 
+              : "bg-muted/30 border border-dashed border-muted-foreground/30 text-muted-foreground/50 hover:border-primary/50 hover:text-primary/50"
+          }`}
+        >
+          {value !== null ? value : "–"}
+        </motion.div>
+      )}
+      
       <Button
         variant="ghost"
         size="icon"
         className="w-6 h-6 md:w-5 md:h-5 rounded-full bg-muted/50 hover:bg-muted text-foreground"
         onClick={handleIncrement}
-        disabled={disabled || value >= 15}
+        disabled={disabled || (value !== null && value >= 15)}
       >
         <Plus className="w-3 h-3 md:w-2.5 md:h-2.5" />
       </Button>
@@ -80,48 +141,62 @@ interface MatchCardProps {
 }
 
 const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmResult }: MatchCardProps) => {
-  const [localHome, setLocalHome] = useState<number>(
+  const [localHome, setLocalHome] = useState<number | null>(
     match.homePrediction !== null && match.homePrediction !== undefined 
       ? match.homePrediction 
-      : 0
+      : null
   );
-  const [localAway, setLocalAway] = useState<number>(
+  const [localAway, setLocalAway] = useState<number | null>(
     match.awayPrediction !== null && match.awayPrediction !== undefined 
       ? match.awayPrediction 
-      : 0
-  );
-  const [hasInteracted, setHasInteracted] = useState(
-    match.homePrediction !== null || match.awayPrediction !== null
+      : null
   );
 
   useEffect(() => {
     if (match.homePrediction !== null && match.homePrediction !== undefined) {
       setLocalHome(match.homePrediction);
-      setHasInteracted(true);
+    } else {
+      setLocalHome(null);
     }
     if (match.awayPrediction !== null && match.awayPrediction !== undefined) {
       setLocalAway(match.awayPrediction);
-      setHasInteracted(true);
-    }
-    if (match.homePrediction === null && match.awayPrediction === null) {
-      setLocalHome(0);
-      setLocalAway(0);
-      setHasInteracted(false);
+    } else {
+      setLocalAway(null);
     }
   }, [match.homePrediction, match.awayPrediction]);
 
   const isPlayed = match.status === "played";
 
+  // When user activates home score, set home to 0 and away to 0
+  const handleHomeActivate = () => {
+    setLocalHome(0);
+    if (localAway === null) {
+      setLocalAway(0);
+    }
+    onUpdatePrediction(match.id, 0, localAway === null ? 0 : localAway);
+  };
+
+  // When user activates away score, set away to 0 and home to 0
+  const handleAwayActivate = () => {
+    setLocalAway(0);
+    if (localHome === null) {
+      setLocalHome(0);
+    }
+    onUpdatePrediction(match.id, localHome === null ? 0 : localHome, 0);
+  };
+
   const handleHomeChange = (value: number) => {
     setLocalHome(value);
-    setHasInteracted(true);
-    onUpdatePrediction(match.id, value, localAway);
+    const awayVal = localAway === null ? 0 : localAway;
+    if (localAway === null) setLocalAway(0);
+    onUpdatePrediction(match.id, value, awayVal);
   };
 
   const handleAwayChange = (value: number) => {
     setLocalAway(value);
-    setHasInteracted(true);
-    onUpdatePrediction(match.id, localHome, value);
+    const homeVal = localHome === null ? 0 : localHome;
+    if (localHome === null) setLocalHome(0);
+    onUpdatePrediction(match.id, homeVal, value);
   };
 
 
@@ -181,9 +256,9 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <GoalStepper value={localHome} onChange={handleHomeChange} />
+              <GoalStepper value={localHome} onChange={handleHomeChange} onActivate={handleHomeActivate} />
               <span className="text-muted-foreground text-lg font-bold">-</span>
-              <GoalStepper value={localAway} onChange={handleAwayChange} />
+              <GoalStepper value={localAway} onChange={handleAwayChange} onActivate={handleAwayActivate} />
             </div>
           )}
         </div>
@@ -220,9 +295,9 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
             </div>
           ) : (
             <div className="flex items-center gap-0.5">
-              <GoalStepper value={localHome} onChange={handleHomeChange} />
+              <GoalStepper value={localHome} onChange={handleHomeChange} onActivate={handleHomeActivate} />
               <span className="text-muted-foreground text-[10px] font-medium">-</span>
-              <GoalStepper value={localAway} onChange={handleAwayChange} />
+              <GoalStepper value={localAway} onChange={handleAwayChange} onActivate={handleAwayActivate} />
             </div>
           )}
         </div>
