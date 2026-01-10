@@ -343,13 +343,12 @@ export const FixtureView = ({
   ).length;
   const pendingCount = matches.length - playedCount;
 
-  // Generate random results for all pending matches
-  const handleMagicWand = () => {
+  // Autocomplete with draws for matches without results
+  const handleAutocompleteDraw = () => {
     matches.forEach((match) => {
-      if (match.status === "pending") {
-        const homeScore = Math.floor(Math.random() * 5);
-        const awayScore = Math.floor(Math.random() * 5);
-        onUpdatePrediction(match.id, homeScore, awayScore);
+      // Only apply to pending matches that don't have predictions yet
+      if (match.status === "pending" && match.homePrediction === null && match.awayPrediction === null) {
+        onUpdatePrediction(match.id, 0, 0);
       }
     });
   };
@@ -378,7 +377,7 @@ export const FixtureView = ({
               </div>
             </div>
             
-            {/* Magic Wand Button */}
+            {/* Autocomplete with Draws Button */}
             {pendingCount > 0 && (
               <TooltipProvider>
                 <Tooltip>
@@ -387,13 +386,13 @@ export const FixtureView = ({
                       variant="ghost"
                       size="icon"
                       className="w-7 h-7 md:w-6 md:h-6 text-amber-400 hover:text-amber-300 hover:bg-amber-400/10"
-                      onClick={handleMagicWand}
+                      onClick={handleAutocompleteDraw}
                     >
                       <Wand2 className="w-4 h-4 md:w-3.5 md:h-3.5" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Autocompletar resultados aleatorios</p>
+                    <p>Autocompletar con empates</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
