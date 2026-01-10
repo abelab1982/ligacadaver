@@ -40,7 +40,7 @@ export const MainLayout = () => {
   const currentMatches = getMatchesByRound(currentRound);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-full bg-background flex flex-col overflow-hidden">
       {/* Gradient Background */}
       <div className="fixed inset-0 bg-gradient-to-br from-background via-background to-primary/5 pointer-events-none" />
       
