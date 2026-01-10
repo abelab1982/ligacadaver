@@ -1,5 +1,6 @@
 // Team logos mapping
 import logoAas from "@/assets/logos/aas.png";
+import logoAdt from "@/assets/logos/adt.png";
 import logoAli from "@/assets/logos/ali.png";
 import logoCha from "@/assets/logos/cha.png";
 import logoCie from "@/assets/logos/cie.png";
@@ -15,10 +16,12 @@ import logoMoq from "@/assets/logos/moq.png";
 import logoSba from "@/assets/logos/sba.png";
 import logoShu from "@/assets/logos/shu.png";
 import logoUni from "@/assets/logos/uni.png";
+import logoUtc from "@/assets/logos/utc.png";
 
 // Map team IDs to their logo imports
 export const teamLogos: Record<string, string> = {
   aas: logoAas,
+  adt: logoAdt,
   ali: logoAli,
   cha: logoCha,
   cie: logoCie,
@@ -34,6 +37,7 @@ export const teamLogos: Record<string, string> = {
   sba: logoSba,
   shu: logoShu,
   uni: logoUni,
+  utc: logoUtc,
 };
 
 // Helper function to get team logo by ID
