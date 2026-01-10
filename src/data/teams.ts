@@ -129,7 +129,7 @@ export const initialTeams: Team[] = [
   },
   {
     id: "com",
-    name: "Comerciantes Unidos",
+    name: "Comerciantes U.",
     abbreviation: "COM",
     city: "Cutervo",
     stadium: "Juan Maldonado",
