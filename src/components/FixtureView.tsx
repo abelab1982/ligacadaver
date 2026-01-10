@@ -443,8 +443,8 @@ export const FixtureView = ({
           </motion.div>
         </AnimatePresence>
         
-        {/* Footer */}
-        <Footer />
+        {/* Footer minimal */}
+        <Footer minimal />
       </div>
     </div>
   );
