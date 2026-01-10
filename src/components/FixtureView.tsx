@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Match, TeamStats } from "@/hooks/useLeagueEngine";
 import { useState, useEffect } from "react";
-import { getTeamLogo } from "@/data/teamLogos";
+import { TeamLogo } from "@/components/TeamLogo";
 import {
   Tooltip,
   TooltipContent,
@@ -22,14 +22,6 @@ interface FixtureViewProps {
   getTeamById: (id: string) => TeamStats | undefined;
 }
 
-const getContrastColor = (hexColor: string): string => {
-  const hex = hexColor.replace('#', '');
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5 ? '#000000' : '#FFFFFF';
-};
 
 
 interface GoalStepperProps {
@@ -151,23 +143,13 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
         <div className="flex items-center justify-between gap-2">
           {/* Home Team */}
           <div className="flex-1 flex items-center gap-2">
-            {getTeamLogo(homeTeam.id) ? (
-              <img 
-                src={getTeamLogo(homeTeam.id)!} 
-                alt={homeTeam.name}
-                className="w-10 h-10 object-contain shrink-0"
-              />
-            ) : (
-              <div 
-                className="w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 shadow-md"
-                style={{ 
-                  backgroundColor: homeTeam.primaryColor,
-                  color: getContrastColor(homeTeam.primaryColor)
-                }}
-              >
-                {homeTeam.abbreviation}
-              </div>
-            )}
+            <TeamLogo
+              teamId={homeTeam.id}
+              teamName={homeTeam.name}
+              abbreviation={homeTeam.abbreviation}
+              primaryColor={homeTeam.primaryColor}
+              size="md"
+            />
             <span className="text-sm font-medium leading-tight">
               {homeTeam.name}
             </span>
@@ -177,28 +159,16 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
           
           {/* Away Team */}
           <div className="flex-1 flex items-center gap-2 justify-end">
-            <div className="flex flex-col items-end">
-              <span className="text-sm font-medium leading-tight text-right">
-                {awayTeam.name}
-              </span>
-            </div>
-            {getTeamLogo(awayTeam.id) ? (
-              <img 
-                src={getTeamLogo(awayTeam.id)!} 
-                alt={awayTeam.name}
-                className="w-10 h-10 object-contain shrink-0"
-              />
-            ) : (
-              <div 
-                className="w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 shadow-md"
-                style={{ 
-                  backgroundColor: awayTeam.primaryColor,
-                  color: getContrastColor(awayTeam.primaryColor)
-                }}
-              >
-                {awayTeam.abbreviation}
-              </div>
-            )}
+            <span className="text-sm font-medium leading-tight text-right">
+              {awayTeam.name}
+            </span>
+            <TeamLogo
+              teamId={awayTeam.id}
+              teamName={awayTeam.name}
+              abbreviation={awayTeam.abbreviation}
+              primaryColor={awayTeam.primaryColor}
+              size="md"
+            />
           </div>
         </div>
 
@@ -245,23 +215,13 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
           <span className="text-[11px] font-medium truncate">
             {homeTeam.name}
           </span>
-          {getTeamLogo(homeTeam.id) ? (
-            <img 
-              src={getTeamLogo(homeTeam.id)!} 
-              alt={homeTeam.name}
-              className="w-7 h-7 object-contain shrink-0"
-            />
-          ) : (
-            <div 
-              className="w-7 h-7 rounded flex items-center justify-center text-[10px] font-bold shrink-0"
-              style={{ 
-                backgroundColor: homeTeam.primaryColor,
-                color: getContrastColor(homeTeam.primaryColor)
-              }}
-            >
-              {homeTeam.abbreviation}
-            </div>
-          )}
+          <TeamLogo
+            teamId={homeTeam.id}
+            teamName={homeTeam.name}
+            abbreviation={homeTeam.abbreviation}
+            primaryColor={homeTeam.primaryColor}
+            size="sm"
+          />
         </div>
 
         {/* Score */}
@@ -287,23 +247,13 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
 
         {/* Away Team */}
         <div className="flex-1 flex items-center gap-1.5 min-w-0">
-          {getTeamLogo(awayTeam.id) ? (
-            <img 
-              src={getTeamLogo(awayTeam.id)!} 
-              alt={awayTeam.name}
-              className="w-7 h-7 object-contain shrink-0"
-            />
-          ) : (
-            <div 
-              className="w-7 h-7 rounded flex items-center justify-center text-[10px] font-bold shrink-0"
-              style={{ 
-                backgroundColor: awayTeam.primaryColor,
-                color: getContrastColor(awayTeam.primaryColor)
-              }}
-            >
-              {awayTeam.abbreviation}
-            </div>
-          )}
+          <TeamLogo
+            teamId={awayTeam.id}
+            teamName={awayTeam.name}
+            abbreviation={awayTeam.abbreviation}
+            primaryColor={awayTeam.primaryColor}
+            size="sm"
+          />
           <span className="text-[11px] font-medium truncate">
             {awayTeam.name}
           </span>
