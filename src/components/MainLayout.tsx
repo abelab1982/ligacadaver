@@ -1,16 +1,25 @@
 import { motion } from "framer-motion";
-import { Calendar, Trophy } from "lucide-react";
+import { Calendar, Trophy, Share2 } from "lucide-react";
 import { Header } from "./Header";
 import { FixtureView } from "./FixtureView";
 import { StandingsView } from "./StandingsView";
+import { ShareDialog } from "./ShareDialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { useLeagueEngine } from "@/hooks/useLeagueEngine";
 import { useState } from "react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type ViewType = "fixture" | "tabla";
 
 export const MainLayout = () => {
   const [activeTab, setActiveTab] = useState<ViewType>("tabla");
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   
   const {
     teams,
@@ -144,6 +153,39 @@ export const MainLayout = () => {
             )}
           </div>
         </div>
+
+        {/* Floating Action Button - Share */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <motion.div
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.5, type: "spring", stiffness: 300, damping: 20 }}
+                className="fixed bottom-6 right-6 z-50"
+              >
+                <Button
+                  size="lg"
+                  className="w-14 h-14 rounded-full shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-shadow"
+                  onClick={() => setShareDialogOpen(true)}
+                >
+                  <Share2 className="w-6 h-6" />
+                </Button>
+              </motion.div>
+            </TooltipTrigger>
+            <TooltipContent side="left">
+              <p>Compartir Tabla</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        {/* Share Dialog */}
+        <ShareDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          teams={teams}
+          showPredictions={showPredictions}
+        />
       </div>
     </div>
   );
