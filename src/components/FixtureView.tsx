@@ -205,12 +205,17 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
         {/* Score Row */}
         <div className="flex items-center justify-center gap-2">
           {isPlayed ? (
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center text-2xl font-bold">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-lg bg-muted flex items-center justify-center text-3xl font-bold">
                 {match.homeScore}
               </div>
-              <Lock className="w-4 h-4 text-muted-foreground" />
-              <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center text-2xl font-bold">
+              <div className="flex flex-col items-center">
+                <Lock className="w-5 h-5 text-muted-foreground" />
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">
+                  Final
+                </span>
+              </div>
+              <div className="w-14 h-14 rounded-lg bg-muted flex items-center justify-center text-3xl font-bold">
                 {match.awayScore}
               </div>
             </div>
@@ -230,15 +235,6 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
             </div>
           )}
         </div>
-        
-        {/* Status indicator */}
-        {isPlayed && (
-          <div className="text-center">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              Resultado Final
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Desktop Layout: Compact Horizontal */}
