@@ -1,6 +1,20 @@
 import yapeQr from "@/assets/yape-qr.jpeg";
 
-export const Footer = () => {
+interface FooterProps {
+  minimal?: boolean;
+}
+
+export const Footer = ({ minimal = false }: FooterProps) => {
+  if (minimal) {
+    return (
+      <footer className="w-full bg-card/50 border-t border-border py-4 px-4">
+        <p className="text-xs text-muted-foreground text-center">
+          Creado por <span className="font-medium text-foreground">Digital Trendy</span>
+        </p>
+      </footer>
+    );
+  }
+
   return (
     <footer className="w-full bg-card/50 border-t border-border py-6 px-4">
       <div className="max-w-md mx-auto text-center space-y-3">
