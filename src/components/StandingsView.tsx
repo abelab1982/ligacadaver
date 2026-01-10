@@ -1,5 +1,6 @@
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
-import { RotateCcw, Eye, EyeOff, Minus, Plus } from "lucide-react";
+import { RotateCcw, Eye, EyeOff, Minus, Plus, Tv, Sparkles } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TeamStats } from "@/hooks/useLeagueEngine";
 import { getStatusBadge } from "@/data/teams";
@@ -181,6 +182,25 @@ export const StandingsView = ({
   onUpdateFairPlay,
   stats,
 }: StandingsViewProps) => {
+  const [streamerMode, setStreamerMode] = useState(false);
+  const [isRevealed, setIsRevealed] = useState(false);
+
+  const handleToggleStreamerMode = () => {
+    if (streamerMode) {
+      // Turning off streamer mode
+      setStreamerMode(false);
+      setIsRevealed(false);
+    } else {
+      // Turning on streamer mode
+      setStreamerMode(true);
+      setIsRevealed(false);
+    }
+  };
+
+  const handleReveal = () => {
+    setIsRevealed(true);
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -202,6 +222,24 @@ export const StandingsView = ({
           </div>
           
           <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={streamerMode ? "default" : "ghost"}
+                    size="sm"
+                    onClick={handleToggleStreamerMode}
+                    className={`gap-1 text-xs ${streamerMode ? "bg-purple-600 hover:bg-purple-700" : ""}`}
+                  >
+                    <Tv className="w-4 h-4" />
+                    <span className="hidden sm:inline">Streamer</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{streamerMode ? "Desactivar Modo Streamer" : "Activar Modo Streamer"}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <Button
               variant="ghost"
               size="sm"
@@ -274,8 +312,88 @@ export const StandingsView = ({
         </TooltipProvider>
       </div>
 
-      {/* Table */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Table with Streamer Mode Overlay */}
+      <div className="flex-1 overflow-y-auto relative">
+        {/* Blur overlay for Streamer Mode */}
+        <AnimatePresence>
+          {streamerMode && !isRevealed && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-6 backdrop-blur-md bg-background/60"
+            >
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.1 }}
+                className="text-center"
+              >
+                <EyeOff className="w-16 h-16 text-muted-foreground/50 mx-auto mb-4" />
+                <h3 className="text-2xl font-bold text-foreground mb-2">Resultados Ocultos</h3>
+                <p className="text-muted-foreground text-sm">Modo Streamer activado</p>
+              </motion.div>
+              
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.2 }}
+              >
+                <Button
+                  size="lg"
+                  onClick={handleReveal}
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold text-lg px-8 py-6 rounded-xl shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30 transition-all"
+                >
+                  <Sparkles className="w-5 h-5 mr-2" />
+                  Revelar Tabla Final
+                </Button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Celebration animation when revealed */}
+        <AnimatePresence>
+          {streamerMode && isRevealed && (
+            <motion.div
+              initial={{ opacity: 1 }}
+              animate={{ opacity: 0 }}
+              transition={{ delay: 1.5, duration: 0.5 }}
+              className="absolute inset-0 z-30 pointer-events-none overflow-hidden"
+            >
+              {/* Confetti-like particles */}
+              {[...Array(20)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ 
+                    y: "50%",
+                    x: `${Math.random() * 100}%`,
+                    scale: 0,
+                    rotate: 0
+                  }}
+                  animate={{ 
+                    y: ["50%", "-20%"],
+                    scale: [0, 1, 0.5],
+                    rotate: [0, 360],
+                    opacity: [0, 1, 0]
+                  }}
+                  transition={{ 
+                    duration: 1.5,
+                    delay: i * 0.05,
+                    ease: "easeOut"
+                  }}
+                  className={`absolute w-3 h-3 rounded-full ${
+                    i % 4 === 0 ? "bg-amber-400" :
+                    i % 4 === 1 ? "bg-green-400" :
+                    i % 4 === 2 ? "bg-purple-400" :
+                    "bg-pink-400"
+                  }`}
+                />
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <table className="w-full">
           <thead className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
             <tr className="border-b border-border text-xs text-muted-foreground">
