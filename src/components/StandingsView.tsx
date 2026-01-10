@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TeamStats } from "@/hooks/useLeagueEngine";
 import { getStatusBadge } from "@/data/teams";
+import { getTeamLogo } from "@/data/teamLogos";
 import {
   Tooltip,
   TooltipContent,
@@ -98,15 +99,23 @@ const TeamRow = ({ team, position, showPredictions, onUpdateFairPlay }: TeamRowP
       {/* Team */}
       <td className="py-2.5 px-2">
         <div className="flex items-center gap-2">
-          <div 
-            className="w-7 h-7 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0 shadow-sm"
-            style={{ 
-              backgroundColor: team.primaryColor,
-              color: getContrastColor(team.primaryColor)
-            }}
-          >
-            {team.abbreviation}
-          </div>
+          {getTeamLogo(team.id) ? (
+            <img 
+              src={getTeamLogo(team.id)!} 
+              alt={team.name}
+              className="w-7 h-7 object-contain shrink-0"
+            />
+          ) : (
+            <div 
+              className="w-7 h-7 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0 shadow-sm"
+              style={{ 
+                backgroundColor: team.primaryColor,
+                color: getContrastColor(team.primaryColor)
+              }}
+            >
+              {team.abbreviation}
+            </div>
+          )}
           <span className="text-sm font-medium truncate">{team.name}</span>
         </div>
       </td>
