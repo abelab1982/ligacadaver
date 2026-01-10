@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Check, Minus, Plus, Wand2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Minus, Plus, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Match, TeamStats } from "@/hooks/useLeagueEngine";
@@ -124,11 +124,6 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
     onUpdatePrediction(match.id, localHome, value);
   };
 
-  const handleConfirm = () => {
-    if (hasInteracted) {
-      onConfirmResult(match.id, localHome, localAway);
-    }
-  };
 
   return (
     <Card className={`p-2 md:p-2 transition-all duration-200 ${
@@ -189,14 +184,6 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
               <GoalStepper value={localHome} onChange={handleHomeChange} />
               <span className="text-muted-foreground text-lg font-bold">-</span>
               <GoalStepper value={localAway} onChange={handleAwayChange} />
-              <Button
-                size="icon"
-                variant={hasInteracted ? "default" : "ghost"}
-                className="w-10 h-10 shrink-0 ml-2"
-                onClick={handleConfirm}
-              >
-                <Check className="w-5 h-5" />
-              </Button>
             </div>
           )}
         </div>
@@ -220,7 +207,7 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
         </div>
 
         {/* Score - Centered with fixed width */}
-        <div className="flex items-center justify-center w-[140px] shrink-0">
+        <div className="flex items-center justify-center w-[120px] shrink-0">
           {isPlayed ? (
             <div className="flex items-center gap-1">
               <div className="w-7 h-7 rounded bg-muted/50 flex items-center justify-center text-sm font-bold text-muted-foreground">
@@ -236,14 +223,6 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
               <GoalStepper value={localHome} onChange={handleHomeChange} />
               <span className="text-muted-foreground text-[10px] font-medium">-</span>
               <GoalStepper value={localAway} onChange={handleAwayChange} />
-              <Button
-                size="icon"
-                variant={hasInteracted ? "default" : "ghost"}
-                className="w-5 h-5 shrink-0 ml-0.5"
-                onClick={handleConfirm}
-              >
-                <Check className="w-3 h-3" />
-              </Button>
             </div>
           )}
         </div>
