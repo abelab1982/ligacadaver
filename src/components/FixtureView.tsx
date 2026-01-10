@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Check, Lock, Minus, Plus, Wand2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Minus, Plus, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Match, TeamStats } from "@/hooks/useLeagueEngine";
@@ -175,17 +175,12 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
         {/* Score Row */}
         <div className="flex items-center justify-center gap-2">
           {isPlayed ? (
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-lg bg-muted flex items-center justify-center text-3xl font-bold">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-lg bg-muted/50 flex items-center justify-center text-2xl font-bold text-muted-foreground">
                 {match.homeScore}
               </div>
-              <div className="flex flex-col items-center">
-                <Lock className="w-5 h-5 text-muted-foreground" />
-                <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">
-                  Final
-                </span>
-              </div>
-              <div className="w-14 h-14 rounded-lg bg-muted flex items-center justify-center text-3xl font-bold">
+              <span className="text-muted-foreground/50 text-lg font-bold">-</span>
+              <div className="w-12 h-12 rounded-lg bg-muted/50 flex items-center justify-center text-2xl font-bold text-muted-foreground">
                 {match.awayScore}
               </div>
             </div>
@@ -224,15 +219,15 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
           />
         </div>
 
-        {/* Score */}
-        <div className="flex items-center gap-0.5 px-1">
+        {/* Score - Centered with fixed width */}
+        <div className="flex items-center justify-center w-[140px] shrink-0">
           {isPlayed ? (
             <div className="flex items-center gap-1">
-              <div className="w-7 h-7 rounded bg-muted flex items-center justify-center text-sm font-bold">
+              <div className="w-7 h-7 rounded bg-muted/50 flex items-center justify-center text-sm font-bold text-muted-foreground">
                 {match.homeScore}
               </div>
-              <Lock className="w-2.5 h-2.5 text-muted-foreground" />
-              <div className="w-7 h-7 rounded bg-muted flex items-center justify-center text-sm font-bold">
+              <span className="text-muted-foreground/50 text-[10px] font-medium">-</span>
+              <div className="w-7 h-7 rounded bg-muted/50 flex items-center justify-center text-sm font-bold text-muted-foreground">
                 {match.awayScore}
               </div>
             </div>
@@ -241,6 +236,14 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
               <GoalStepper value={localHome} onChange={handleHomeChange} />
               <span className="text-muted-foreground text-[10px] font-medium">-</span>
               <GoalStepper value={localAway} onChange={handleAwayChange} />
+              <Button
+                size="icon"
+                variant={hasInteracted ? "default" : "ghost"}
+                className="w-5 h-5 shrink-0 ml-0.5"
+                onClick={handleConfirm}
+              >
+                <Check className="w-3 h-3" />
+              </Button>
             </div>
           )}
         </div>
@@ -258,28 +261,7 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
             {awayTeam.name}
           </span>
         </div>
-
-        {/* Confirm Button */}
-        {!isPlayed && (
-          <Button
-            size="icon"
-            variant={hasInteracted ? "default" : "ghost"}
-            className="w-6 h-6 shrink-0"
-            onClick={handleConfirm}
-          >
-            <Check className="w-3.5 h-3.5" />
-          </Button>
-        )}
       </div>
-      
-      {/* Status indicator - Desktop only */}
-      {isPlayed && (
-        <div className="hidden md:block mt-1 text-center">
-          <span className="text-[9px] text-muted-foreground uppercase tracking-wider">
-            Final
-          </span>
-        </div>
-      )}
     </Card>
   );
 };
@@ -326,10 +308,7 @@ export const FixtureView = ({
             <div>
               <h3 className="font-bold text-lg md:text-base">Fecha {currentRound}</h3>
               <div className="flex gap-3 text-xs md:text-[10px] text-muted-foreground justify-center">
-                <span className="flex items-center gap-1">
-                  <Lock className="w-3 h-3 md:w-2.5 md:h-2.5" />
-                  {playedCount} jugados
-                </span>
+                <span>{playedCount} jugados</span>
                 <span>{pendingCount} pendientes</span>
               </div>
             </div>
