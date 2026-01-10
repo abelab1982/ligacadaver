@@ -140,9 +140,36 @@ export const useLeagueEngine = () => {
   const getMatchesByRound = useCallback((n: number) => rounds.find((r) => r.round === n)?.matches || [], [rounds]);
 
   const stats = useMemo(() => {
-    let totalPlayed = 0, totalGoals = 0;
-    rounds.forEach((r) => r.matches.forEach((m) => { if (m.status === "played" && m.homeScore != null && m.awayScore != null) { totalPlayed++; totalGoals += m.homeScore + m.awayScore; } }));
-    return { totalMatches: 306, matchesPlayed: totalPlayed, totalGoals, averageGoals: totalPlayed > 0 ? (totalGoals / totalPlayed).toFixed(2) : "0.00" };
+    let totalGoals = 0;
+    let roundsWithMatches = 0;
+    
+    rounds.forEach((r) => {
+      // Count if any match in this round has a result (played or predicted)
+      const hasPlayedMatches = r.matches.some((m) => 
+        (m.status === "played" && m.homeScore != null && m.awayScore != null) ||
+        (m.homePrediction != null && m.awayPrediction != null)
+      );
+      
+      if (hasPlayedMatches) {
+        roundsWithMatches++;
+      }
+      
+      // Sum goals from played and predicted matches
+      r.matches.forEach((m) => {
+        if (m.status === "played" && m.homeScore != null && m.awayScore != null) {
+          totalGoals += m.homeScore + m.awayScore;
+        } else if (m.homePrediction != null && m.awayPrediction != null) {
+          totalGoals += m.homePrediction + m.awayPrediction;
+        }
+      });
+    });
+    
+    return { 
+      totalMatches: 306, 
+      roundsPlayed: roundsWithMatches,
+      totalGoals, 
+      averageGoals: roundsWithMatches > 0 ? (totalGoals / roundsWithMatches).toFixed(2) : "0.00" 
+    };
   }, [rounds]);
 
   return { 
