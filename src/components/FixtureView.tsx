@@ -89,15 +89,15 @@ const GoalStepper = ({ value, onChange, onActivate, disabled }: GoalStepperProps
   };
 
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="flex items-center gap-1 md:gap-0.5">
       <Button
         variant="ghost"
         size="icon"
-        className="w-6 h-6 md:w-5 md:h-5 rounded-full bg-muted/50 hover:bg-muted text-foreground"
+        className="w-10 h-10 md:w-5 md:h-5 rounded-full bg-muted/50 hover:bg-muted text-foreground"
         onClick={handleDecrement}
         disabled={disabled || value === null || value <= 0}
       >
-        <Minus className="w-3 h-3 md:w-2.5 md:h-2.5" />
+        <Minus className="w-5 h-5 md:w-2.5 md:h-2.5" />
       </Button>
       
       {isEditing ? (
@@ -109,7 +109,7 @@ const GoalStepper = ({ value, onChange, onActivate, disabled }: GoalStepperProps
           onBlur={handleInputBlur}
           onKeyDown={handleInputKeyDown}
           autoFocus
-          className="w-6 h-6 md:w-5 md:h-5 rounded bg-primary/20 border border-primary text-center text-sm md:text-xs font-bold text-primary outline-none"
+          className="w-10 h-10 md:w-5 md:h-5 rounded bg-primary/20 border border-primary text-center text-lg md:text-xs font-bold text-primary outline-none"
         />
       ) : (
         <motion.div 
@@ -117,7 +117,7 @@ const GoalStepper = ({ value, onChange, onActivate, disabled }: GoalStepperProps
           initial={{ scale: value !== null ? 1.3 : 1 }}
           animate={{ scale: 1 }}
           onClick={handleValueClick}
-          className={`w-6 h-6 md:w-5 md:h-5 rounded flex items-center justify-center text-sm md:text-xs font-bold cursor-pointer transition-colors ${
+          className={`w-10 h-10 md:w-5 md:h-5 rounded flex items-center justify-center text-lg md:text-xs font-bold cursor-pointer transition-colors ${
             value !== null 
               ? "bg-primary/10 border border-primary/30 text-primary" 
               : "bg-muted/30 border border-dashed border-muted-foreground/30 text-muted-foreground/50 hover:border-primary/50 hover:text-primary/50"
@@ -130,11 +130,11 @@ const GoalStepper = ({ value, onChange, onActivate, disabled }: GoalStepperProps
       <Button
         variant="ghost"
         size="icon"
-        className="w-6 h-6 md:w-5 md:h-5 rounded-full bg-muted/50 hover:bg-muted text-foreground"
+        className="w-10 h-10 md:w-5 md:h-5 rounded-full bg-muted/50 hover:bg-muted text-foreground"
         onClick={handleIncrement}
         disabled={disabled || (value !== null && value >= 15)}
       >
-        <Plus className="w-3 h-3 md:w-2.5 md:h-2.5" />
+        <Plus className="w-5 h-5 md:w-2.5 md:h-2.5" />
       </Button>
     </div>
   );
