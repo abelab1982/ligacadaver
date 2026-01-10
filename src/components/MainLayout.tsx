@@ -25,6 +25,7 @@ export const MainLayout = () => {
     resetPredictions,
     getTeamById,
     getMatchesByRound,
+    updateFairPlay,
   } = useLeagueEngine();
 
   const currentMatches = getMatchesByRound(currentRound);
@@ -95,6 +96,7 @@ export const MainLayout = () => {
                   onTogglePredictions={() => setShowPredictions(!showPredictions)}
                   onReset={resetPredictions}
                   onResetPredictions={resetPredictions}
+                  onUpdateFairPlay={updateFairPlay}
                   stats={stats}
                 />
               </div>
@@ -135,6 +137,7 @@ export const MainLayout = () => {
                   onTogglePredictions={() => setShowPredictions(!showPredictions)}
                   onReset={resetPredictions}
                   onResetPredictions={resetPredictions}
+                  onUpdateFairPlay={updateFairPlay}
                   stats={stats}
                 />
               </motion.div>
