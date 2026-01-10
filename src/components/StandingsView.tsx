@@ -112,7 +112,7 @@ const TeamRow = ({ team, position, showPredictions, onUpdateFairPlay }: TeamRowP
       </td>
 
       {/* Stats */}
-      <td className="py-2.5 px-1 text-center text-sm text-muted-foreground hidden sm:table-cell">{played}</td>
+      <td className="py-2.5 px-1 text-center text-sm text-muted-foreground">{played}</td>
       <td className="py-2.5 px-1 text-center text-sm text-green-400 hidden md:table-cell">{won}</td>
       <td className="py-2.5 px-1 text-center text-sm text-yellow-400 hidden md:table-cell">{drawn}</td>
       <td className="py-2.5 px-1 text-center text-sm text-red-400 hidden md:table-cell">{lost}</td>
@@ -392,7 +392,7 @@ export const StandingsView = ({
             <tr className="border-b border-border text-xs text-muted-foreground">
               <th className="py-2 px-2 text-center w-12">#</th>
               <th className="py-2 px-2 text-left">Equipo</th>
-              <th className="py-2 px-1 text-center hidden sm:table-cell">PJ</th>
+              <th className="py-2 px-1 text-center">PJ</th>
               <th className="py-2 px-1 text-center hidden md:table-cell">G</th>
               <th className="py-2 px-1 text-center hidden md:table-cell">E</th>
               <th className="py-2 px-1 text-center hidden md:table-cell">P</th>
