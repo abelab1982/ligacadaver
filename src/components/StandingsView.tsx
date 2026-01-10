@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { TeamStats } from "@/hooks/useLeagueEngine";
 import { getStatusBadge } from "@/data/teams";
 import { TeamLogo } from "@/components/TeamLogo";
+import { Footer } from "./Footer";
 import {
   Tooltip,
   TooltipContent,
@@ -417,6 +418,9 @@ export const StandingsView = ({
             </tbody>
           </LayoutGroup>
         </table>
+        
+        {/* Footer */}
+        <Footer />
       </div>
     </div>
   );
