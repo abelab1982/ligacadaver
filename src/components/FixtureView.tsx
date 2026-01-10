@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Check, Lock, Minus, Plus, Mountain, Wand2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Lock, Minus, Plus, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Match, TeamStats } from "@/hooks/useLeagueEngine";
@@ -30,10 +30,6 @@ const getContrastColor = (hexColor: string): string => {
   return luminance > 0.5 ? '#000000' : '#FFFFFF';
 };
 
-// Check if match is played at altitude (home team's city)
-const isAltitudeMatch = (homeTeam: TeamStats): boolean => {
-  return homeTeam.altitude >= 2500;
-};
 
 interface GoalStepperProps {
   value: number;
@@ -122,7 +118,6 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
   }, [match.homePrediction, match.awayPrediction]);
 
   const isPlayed = match.status === "played";
-  const isAltitude = isAltitudeMatch(homeTeam);
 
   const handleHomeChange = (value: number) => {
     setLocalHome(value);
@@ -148,13 +143,6 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
         ? "bg-muted/30 border-muted" 
         : "bg-card/50 border-border hover:border-primary/30"
     }`}>
-      {/* Altitude Indicator - Only on mobile */}
-      {isAltitude && !isPlayed && (
-        <div className="flex md:hidden items-center gap-1 text-amber-400 text-[10px] mb-2 justify-center">
-          <Mountain className="w-3 h-3" />
-          <span>Partido en Altura ({homeTeam.altitude}m)</span>
-        </div>
-      )}
 
       {/* Mobile Layout: Vertical Stack */}
       <div className="flex flex-col gap-3 md:hidden">
@@ -171,14 +159,9 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
             >
               {homeTeam.abbreviation}
             </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium leading-tight">
-                {homeTeam.name}
-              </span>
-              {isAltitude && (
-                <span className="text-[10px] text-amber-400">Local</span>
-              )}
-            </div>
+            <span className="text-sm font-medium leading-tight">
+              {homeTeam.name}
+            </span>
           </div>
           
           <span className="text-muted-foreground font-bold">VS</span>
@@ -239,10 +222,6 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
 
       {/* Desktop Layout: Compact Horizontal */}
       <div className="hidden md:flex items-center gap-1">
-        {/* Altitude indicator for desktop */}
-        {isAltitude && !isPlayed && (
-          <Mountain className="w-3 h-3 text-amber-400 shrink-0" />
-        )}
         
         {/* Home Team */}
         <div className="flex-1 flex items-center gap-1.5 justify-end min-w-0">
