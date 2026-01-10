@@ -20,7 +20,7 @@ interface StandingsViewProps {
   onResetPredictions: () => void;
   onUpdateFairPlay: (teamId: string, value: number) => void;
   stats: {
-    matchesPlayed: number;
+    roundsPlayed: number;
     totalGoals: number;
     averageGoals: string;
   };
@@ -36,12 +36,12 @@ const getContrastColor = (hexColor: string): string => {
 };
 
 // Position zone colors based on user requirements
-const getZoneIndicator = (position: number): { color: string; label: string; emoji: string } => {
-  if (position === 1) return { color: "bg-amber-500", label: "Campeón", emoji: "🏆" };
-  if (position >= 2 && position <= 4) return { color: "bg-green-500", label: "Libertadores", emoji: "" };
-  if (position >= 5 && position <= 8) return { color: "bg-blue-500", label: "Sudamericana", emoji: "" };
-  if (position >= 16) return { color: "bg-red-500", label: "Descenso", emoji: "" };
-  return { color: "bg-transparent", label: "", emoji: "" };
+const getZoneIndicator = (position: number): { color: string; label: string } => {
+  if (position === 1) return { color: "bg-amber-500", label: "Campeón" };
+  if (position >= 2 && position <= 4) return { color: "bg-green-500", label: "Libertadores" };
+  if (position >= 5 && position <= 8) return { color: "bg-blue-500", label: "Sudamericana" };
+  if (position >= 16) return { color: "bg-red-500", label: "Descenso" };
+  return { color: "bg-transparent", label: "" };
 };
 
 interface TeamRowProps {
@@ -82,7 +82,7 @@ const TeamRow = ({ team, position, showPredictions, onUpdateFairPlay }: TeamRowP
         <div className="flex items-center">
           {/* Color bar indicator */}
           <div className={`absolute left-0 top-1 bottom-1 w-1 rounded-r-full ${zone.color}`} />
-          <div className="pl-3 flex items-center justify-center gap-1 min-w-[40px]">
+          <div className="pl-3 flex items-center justify-center min-w-[40px]">
             <motion.span 
               key={position}
               initial={{ scale: 1.3 }}
@@ -91,7 +91,6 @@ const TeamRow = ({ team, position, showPredictions, onUpdateFairPlay }: TeamRowP
             >
               {position}
             </motion.span>
-            {zone.emoji && <span className="text-sm">{zone.emoji}</span>}
           </div>
         </div>
       </td>
@@ -200,11 +199,15 @@ export const StandingsView = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="text-sm">
+              <span className="text-muted-foreground">Fechas: </span>
+              <span className="font-bold">{stats.roundsPlayed}</span>
+            </div>
+            <div className="text-sm">
               <span className="text-muted-foreground">Goles: </span>
               <span className="font-bold">{stats.totalGoals}</span>
             </div>
             <div className="text-sm hidden sm:block">
-              <span className="text-muted-foreground">Promedio: </span>
+              <span className="text-muted-foreground">Promedio/Fecha: </span>
               <span className="font-bold">{stats.averageGoals}</span>
             </div>
           </div>
