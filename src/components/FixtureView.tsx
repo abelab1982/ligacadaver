@@ -1,124 +1,102 @@
-import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Calendar, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Team } from "@/data/teams";
-
-interface Match {
-  id: string;
-  homeTeam: Team;
-  awayTeam: Team;
-  homeScore: number | null;
-  awayScore: number | null;
-  played: boolean;
-}
+import { Match, TeamStats } from "@/hooks/useLeagueEngine";
+import { useState, useEffect } from "react";
 
 interface FixtureViewProps {
-  teams: Team[];
-  onMatchResult: (homeId: string, awayId: string, homeScore: number, awayScore: number) => void;
+  matches: Match[];
+  currentRound: number;
+  totalRounds: number;
+  onRoundChange: (round: number) => void;
+  onUpdatePrediction: (matchId: string, home: number | null, away: number | null) => void;
+  onConfirmResult: (matchId: string, home: number, away: number) => void;
+  getTeamById: (id: string) => TeamStats | undefined;
 }
 
-export const FixtureView = ({ teams, onMatchResult }: FixtureViewProps) => {
-  const [currentRound, setCurrentRound] = useState(1);
-  const totalRounds = 34;
-
-  return (
-    <div className="h-full flex flex-col">
-      {/* Round Navigation */}
-      <div className="flex items-center justify-between p-4 border-b border-border bg-card/50">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setCurrentRound(Math.max(1, currentRound - 1))}
-          disabled={currentRound === 1}
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </Button>
-        
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-muted-foreground" />
-          <span className="font-semibold">Fecha {currentRound}</span>
-          <span className="text-sm text-muted-foreground">/ {totalRounds}</span>
-        </div>
-        
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setCurrentRound(Math.min(totalRounds, currentRound + 1))}
-          disabled={currentRound === totalRounds}
-        >
-          <ChevronRight className="w-5 h-5" />
-        </Button>
-      </div>
-
-      {/* Matches List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentRound}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.2 }}
-            className="space-y-3"
-          >
-            {/* Placeholder matches - 9 matches per round */}
-            {Array.from({ length: 9 }).map((_, idx) => {
-              const homeTeam = teams[idx * 2] || teams[0];
-              const awayTeam = teams[idx * 2 + 1] || teams[1];
-              
-              return (
-                <MatchCard
-                  key={idx}
-                  homeTeam={homeTeam}
-                  awayTeam={awayTeam}
-                  onResult={(homeScore, awayScore) => 
-                    onMatchResult(homeTeam.id, awayTeam.id, homeScore, awayScore)
-                  }
-                />
-              );
-            })}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
-      {/* Quick Add */}
-      <div className="p-4 border-t border-border">
-        <Button variant="outline" className="w-full gap-2">
-          <Plus className="w-4 h-4" />
-          Agregar Partido Personalizado
-        </Button>
-      </div>
-    </div>
-  );
+const getContrastColor = (hexColor: string): string => {
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? '#000000' : '#FFFFFF';
 };
 
 interface MatchCardProps {
-  homeTeam: Team;
-  awayTeam: Team;
-  onResult: (homeScore: number, awayScore: number) => void;
+  match: Match;
+  homeTeam: TeamStats;
+  awayTeam: TeamStats;
+  onUpdatePrediction: (matchId: string, home: number | null, away: number | null) => void;
+  onConfirmResult: (matchId: string, home: number, away: number) => void;
 }
 
-const MatchCard = ({ homeTeam, awayTeam, onResult }: MatchCardProps) => {
-  const [homeScore, setHomeScore] = useState<string>("");
-  const [awayScore, setAwayScore] = useState<string>("");
-  const [isPlayed, setIsPlayed] = useState(false);
+const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmResult }: MatchCardProps) => {
+  const [localHome, setLocalHome] = useState<string>(
+    match.homePrediction !== null && match.homePrediction !== undefined 
+      ? String(match.homePrediction) 
+      : ""
+  );
+  const [localAway, setLocalAway] = useState<string>(
+    match.awayPrediction !== null && match.awayPrediction !== undefined 
+      ? String(match.awayPrediction) 
+      : ""
+  );
+
+  // Sync with external state
+  useEffect(() => {
+    setLocalHome(
+      match.homePrediction !== null && match.homePrediction !== undefined 
+        ? String(match.homePrediction) 
+        : ""
+    );
+    setLocalAway(
+      match.awayPrediction !== null && match.awayPrediction !== undefined 
+        ? String(match.awayPrediction) 
+        : ""
+    );
+  }, [match.homePrediction, match.awayPrediction]);
+
+  const isPlayed = match.status === "played";
+  const hasPrediction = localHome !== "" && localAway !== "";
+
+  const handleHomeChange = (value: string) => {
+    const numValue = value === "" ? "" : value.replace(/\D/g, "").slice(0, 2);
+    setLocalHome(numValue);
+    const numericValue = numValue === "" ? null : parseInt(numValue, 10);
+    const awayValue = localAway === "" ? null : parseInt(localAway, 10);
+    onUpdatePrediction(match.id, numericValue, awayValue);
+  };
+
+  const handleAwayChange = (value: string) => {
+    const numValue = value === "" ? "" : value.replace(/\D/g, "").slice(0, 2);
+    setLocalAway(numValue);
+    const homeValue = localHome === "" ? null : parseInt(localHome, 10);
+    const numericValue = numValue === "" ? null : parseInt(numValue, 10);
+    onUpdatePrediction(match.id, homeValue, numericValue);
+  };
 
   const handleConfirm = () => {
-    const home = parseInt(homeScore) || 0;
-    const away = parseInt(awayScore) || 0;
-    onResult(home, away);
-    setIsPlayed(true);
+    if (hasPrediction) {
+      onConfirmResult(match.id, parseInt(localHome, 10), parseInt(localAway, 10));
+    }
   };
 
   return (
-    <Card className={`p-3 transition-all ${isPlayed ? 'bg-success/10 border-success/30' : 'bg-card hover:bg-secondary/30'}`}>
+    <Card className={`p-3 transition-all duration-200 ${
+      isPlayed 
+        ? "bg-muted/30 border-muted" 
+        : "bg-card/50 border-border hover:border-primary/30"
+    }`}>
       <div className="flex items-center gap-2">
         {/* Home Team */}
-        <div className="flex-1 flex items-center gap-2 min-w-0">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0"
+        <div className="flex-1 flex items-center gap-2 justify-end">
+          <span className="text-xs text-muted-foreground truncate max-w-[80px] md:max-w-none">
+            {homeTeam.name}
+          </span>
+          <div 
+            className="w-8 h-8 rounded-md flex items-center justify-center text-xs font-bold shrink-0"
             style={{ 
               backgroundColor: homeTeam.primaryColor,
               color: getContrastColor(homeTeam.primaryColor)
@@ -126,39 +104,47 @@ const MatchCard = ({ homeTeam, awayTeam, onResult }: MatchCardProps) => {
           >
             {homeTeam.abbreviation}
           </div>
-          <span className="text-sm font-medium truncate">{homeTeam.name}</span>
         </div>
 
-        {/* Score Inputs */}
-        <div className="flex items-center gap-1">
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={99}
-            value={homeScore}
-            onChange={(e) => setHomeScore(e.target.value)}
-            disabled={isPlayed}
-            className="w-10 h-10 text-center bg-muted border border-border rounded-md text-lg font-bold focus:ring-2 focus:ring-primary focus:border-primary disabled:opacity-50"
-          />
-          <span className="text-muted-foreground font-bold">-</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={99}
-            value={awayScore}
-            onChange={(e) => setAwayScore(e.target.value)}
-            disabled={isPlayed}
-            className="w-10 h-10 text-center bg-muted border border-border rounded-md text-lg font-bold focus:ring-2 focus:ring-primary focus:border-primary disabled:opacity-50"
-          />
+        {/* Score */}
+        <div className="flex items-center gap-1 px-2">
+          {isPlayed ? (
+            <>
+              <div className="w-8 h-8 rounded bg-muted flex items-center justify-center text-sm font-bold">
+                {match.homeScore}
+              </div>
+              <Lock className="w-3 h-3 text-muted-foreground mx-1" />
+              <div className="w-8 h-8 rounded bg-muted flex items-center justify-center text-sm font-bold">
+                {match.awayScore}
+              </div>
+            </>
+          ) : (
+            <>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={localHome}
+                onChange={(e) => handleHomeChange(e.target.value)}
+                className="w-8 h-8 rounded bg-background border border-border text-center text-sm font-bold focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                placeholder="-"
+              />
+              <span className="text-muted-foreground text-xs">vs</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={localAway}
+                onChange={(e) => handleAwayChange(e.target.value)}
+                className="w-8 h-8 rounded bg-background border border-border text-center text-sm font-bold focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                placeholder="-"
+              />
+            </>
+          )}
         </div>
 
         {/* Away Team */}
-        <div className="flex-1 flex items-center gap-2 justify-end min-w-0">
-          <span className="text-sm font-medium truncate text-right">{awayTeam.name}</span>
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0"
+        <div className="flex-1 flex items-center gap-2">
+          <div 
+            className="w-8 h-8 rounded-md flex items-center justify-center text-xs font-bold shrink-0"
             style={{ 
               backgroundColor: awayTeam.primaryColor,
               color: getContrastColor(awayTeam.primaryColor)
@@ -166,34 +152,116 @@ const MatchCard = ({ homeTeam, awayTeam, onResult }: MatchCardProps) => {
           >
             {awayTeam.abbreviation}
           </div>
+          <span className="text-xs text-muted-foreground truncate max-w-[80px] md:max-w-none">
+            {awayTeam.name}
+          </span>
         </div>
-      </div>
 
-      {/* Confirm Button */}
-      {(homeScore !== "" || awayScore !== "") && !isPlayed && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          className="mt-3 pt-3 border-t border-border"
-        >
-          <Button 
-            size="sm" 
-            className="w-full"
+        {/* Confirm Button */}
+        {!isPlayed && (
+          <Button
+            size="icon"
+            variant={hasPrediction ? "default" : "ghost"}
+            className="w-7 h-7 shrink-0"
+            disabled={!hasPrediction}
             onClick={handleConfirm}
           >
-            Confirmar Resultado
+            <Check className="w-4 h-4" />
           </Button>
-        </motion.div>
+        )}
+      </div>
+      
+      {/* Status indicator */}
+      {isPlayed && (
+        <div className="mt-2 text-center">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+            Resultado Final
+          </span>
+        </div>
       )}
     </Card>
   );
 };
 
-function getContrastColor(hexColor: string): string {
-  const hex = hexColor.replace("#", "");
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5 ? "#000000" : "#FFFFFF";
-}
+export const FixtureView = ({
+  matches,
+  currentRound,
+  totalRounds,
+  onRoundChange,
+  onUpdatePrediction,
+  onConfirmResult,
+  getTeamById,
+}: FixtureViewProps) => {
+  const playedCount = matches.filter(m => m.status === "played").length;
+  const pendingCount = matches.length - playedCount;
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Round Navigation */}
+      <div className="p-3 border-b border-border bg-card/30">
+        <div className="flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onRoundChange(Math.max(1, currentRound - 1))}
+            disabled={currentRound === 1}
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+          
+          <div className="text-center">
+            <h3 className="font-bold text-lg">Fecha {currentRound}</h3>
+            <div className="flex gap-3 text-xs text-muted-foreground justify-center">
+              <span className="flex items-center gap-1">
+                <Lock className="w-3 h-3" />
+                {playedCount} jugados
+              </span>
+              <span>{pendingCount} pendientes</span>
+            </div>
+          </div>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onRoundChange(Math.min(totalRounds, currentRound + 1))}
+            disabled={currentRound === totalRounds}
+          >
+            <ChevronRight className="w-5 h-5" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Matches List */}
+      <div className="flex-1 overflow-y-auto p-3">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentRound}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-2"
+          >
+            {matches.map((match) => {
+              const homeTeam = getTeamById(match.homeId);
+              const awayTeam = getTeamById(match.awayId);
+              
+              if (!homeTeam || !awayTeam) return null;
+
+              return (
+                <MatchCard
+                  key={match.id}
+                  match={match}
+                  homeTeam={homeTeam}
+                  awayTeam={awayTeam}
+                  onUpdatePrediction={onUpdatePrediction}
+                  onConfirmResult={onConfirmResult}
+                />
+              );
+            })}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+};

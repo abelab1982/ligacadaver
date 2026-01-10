@@ -1,0 +1,76 @@
+{
+  "season": "Liga 1 2026",
+  "totalRounds": 34,
+  "matches": [
+    {
+      "round": 1,
+      "matches": [
+        { "id": "r1m1", "homeId": "uni", "awayId": "moq", "homeScore": 3, "awayScore": 0, "status": "played" },
+        { "id": "r1m2", "homeId": "ali", "awayId": "jpi", "homeScore": 2, "awayScore": 1, "status": "played" },
+        { "id": "r1m3", "homeId": "cri", "awayId": "sba", "homeScore": 1, "awayScore": 1, "status": "played" },
+        { "id": "r1m4", "homeId": "mel", "awayId": "gra", "homeScore": 2, "awayScore": 0, "status": "played" },
+        { "id": "r1m5", "homeId": "cus", "awayId": "aas", "homeScore": 1, "awayScore": 0, "status": "played" },
+        { "id": "r1m6", "homeId": "cie", "awayId": "cha", "homeScore": 0, "awayScore": 0, "status": "played" },
+        { "id": "r1m7", "homeId": "gar", "awayId": "fcc", "homeScore": 2, "awayScore": 2, "status": "played" },
+        { "id": "r1m8", "homeId": "adt", "awayId": "com", "homeScore": 1, "awayScore": 0, "status": "played" },
+        { "id": "r1m9", "homeId": "shu", "awayId": "utc", "homeScore": 3, "awayScore": 1, "status": "played" }
+      ]
+    },
+    {
+      "round": 2,
+      "matches": [
+        { "id": "r2m1", "homeId": "moq", "awayId": "shu", "homeScore": 0, "awayScore": 2, "status": "played" },
+        { "id": "r2m2", "homeId": "jpi", "awayId": "uni", "homeScore": 0, "awayScore": 1, "status": "played" },
+        { "id": "r2m3", "homeId": "sba", "awayId": "ali", "homeScore": 1, "awayScore": 2, "status": "played" },
+        { "id": "r2m4", "homeId": "gra", "awayId": "cri", "homeScore": 0, "awayScore": 3, "status": "played" },
+        { "id": "r2m5", "homeId": "aas", "awayId": "mel", "homeScore": 1, "awayScore": 1, "status": "played" },
+        { "id": "r2m6", "homeId": "cha", "awayId": "cus", "homeScore": 2, "awayScore": 1, "status": "played" },
+        { "id": "r2m7", "homeId": "fcc", "awayId": "cie", "homeScore": 1, "awayScore": 0, "status": "played" },
+        { "id": "r2m8", "homeId": "com", "awayId": "gar", "homeScore": 0, "awayScore": 1, "status": "played" },
+        { "id": "r2m9", "homeId": "utc", "awayId": "adt", "homeScore": 1, "awayScore": 1, "status": "played" }
+      ]
+    },
+    {
+      "round": 3,
+      "matches": [
+        { "id": "r3m1", "homeId": "uni", "awayId": "sba", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r3m2", "homeId": "ali", "awayId": "gra", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r3m3", "homeId": "cri", "awayId": "aas", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r3m4", "homeId": "mel", "awayId": "cha", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r3m5", "homeId": "cus", "awayId": "fcc", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r3m6", "homeId": "cie", "awayId": "com", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r3m7", "homeId": "gar", "awayId": "utc", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r3m8", "homeId": "adt", "awayId": "moq", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r3m9", "homeId": "shu", "awayId": "jpi", "homeScore": null, "awayScore": null, "status": "pending" }
+      ]
+    },
+    {
+      "round": 4,
+      "matches": [
+        { "id": "r4m1", "homeId": "moq", "awayId": "gar", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r4m2", "homeId": "jpi", "awayId": "adt", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r4m3", "homeId": "sba", "awayId": "shu", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r4m4", "homeId": "gra", "awayId": "uni", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r4m5", "homeId": "aas", "awayId": "ali", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r4m6", "homeId": "cha", "awayId": "cri", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r4m7", "homeId": "fcc", "awayId": "mel", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r4m8", "homeId": "com", "awayId": "cus", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r4m9", "homeId": "utc", "awayId": "cie", "homeScore": null, "awayScore": null, "status": "pending" }
+      ]
+    },
+    {
+      "round": 5,
+      "matches": [
+        { "id": "r5m1", "homeId": "uni", "awayId": "aas", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r5m2", "homeId": "ali", "awayId": "cha", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r5m3", "homeId": "cri", "awayId": "fcc", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r5m4", "homeId": "mel", "awayId": "com", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r5m5", "homeId": "cus", "awayId": "utc", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r5m6", "homeId": "cie", "awayId": "moq", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r5m7", "homeId": "gar", "awayId": "jpi", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r5m8", "homeId": "adt", "awayId": "sba", "homeScore": null, "awayScore": null, "status": "pending" },
+        { "id": "r5m9", "homeId": "shu", "awayId": "gra", "homeScore": null, "awayScore": null, "status": "pending" }
+      ]
+    }
+  ]
+}
