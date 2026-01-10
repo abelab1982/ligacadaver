@@ -273,11 +273,11 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
       </div>
 
       {/* Desktop Layout: Compact Horizontal */}
-      <div className="hidden md:flex items-center gap-1">
+      <div className="hidden md:flex items-center gap-2">
         
         {/* Home Team */}
-        <div className="flex-1 flex items-center gap-1.5 justify-end min-w-0">
-          <span className="text-[11px] font-medium truncate">
+        <div className="flex-1 flex items-center gap-2 justify-end min-w-0">
+          <span className="text-xs font-medium truncate">
             {homeTeam.name}
           </span>
           <TeamLogo
@@ -285,7 +285,7 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
             teamName={homeTeam.name}
             abbreviation={homeTeam.abbreviation}
             primaryColor={homeTeam.primaryColor}
-            size="sm"
+            size="md"
           />
         </div>
 
@@ -311,15 +311,15 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
         </div>
 
         {/* Away Team */}
-        <div className="flex-1 flex items-center gap-1.5 min-w-0">
+        <div className="flex-1 flex items-center gap-2 min-w-0">
           <TeamLogo
             teamId={awayTeam.id}
             teamName={awayTeam.name}
             abbreviation={awayTeam.abbreviation}
             primaryColor={awayTeam.primaryColor}
-            size="sm"
+            size="md"
           />
-          <span className="text-[11px] font-medium truncate">
+          <span className="text-xs font-medium truncate">
             {awayTeam.name}
           </span>
         </div>
