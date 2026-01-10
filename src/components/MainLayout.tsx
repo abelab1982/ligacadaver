@@ -93,7 +93,7 @@ export const MainLayout = () => {
                   teams={teams}
                   showPredictions={showPredictions}
                   onTogglePredictions={() => setShowPredictions(!showPredictions)}
-                  onReset={resetAll}
+                  onReset={resetPredictions}
                   onResetPredictions={resetPredictions}
                   stats={stats}
                 />
@@ -133,7 +133,7 @@ export const MainLayout = () => {
                   teams={teams}
                   showPredictions={showPredictions}
                   onTogglePredictions={() => setShowPredictions(!showPredictions)}
-                  onReset={resetAll}
+                  onReset={resetPredictions}
                   onResetPredictions={resetPredictions}
                   stats={stats}
                 />
