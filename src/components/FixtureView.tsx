@@ -337,7 +337,10 @@ export const FixtureView = ({
   onConfirmResult,
   getTeamById,
 }: FixtureViewProps) => {
-  const playedCount = matches.filter(m => m.status === "played").length;
+  // Count matches with scores (official or predictions)
+  const playedCount = matches.filter(m => 
+    m.status === "played" || (m.homePrediction !== null && m.awayPrediction !== null)
+  ).length;
   const pendingCount = matches.length - playedCount;
 
   // Generate random results for all pending matches
