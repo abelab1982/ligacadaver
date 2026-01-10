@@ -1,322 +1,229 @@
-import { useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { Team, calculatePoints, calculateGoalDifference, getStatusBadge } from "@/data/teams";
-import { Input } from "@/components/ui/input";
+import { motion, AnimatePresence } from "framer-motion";
+import { RotateCcw, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, Goal } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+import { TeamStats } from "@/hooks/useLeagueEngine";
+import { getStatusBadge } from "@/data/teams";
 
 interface StandingsViewProps {
-  teams: Team[];
-  onUpdateTeam: (id: string, field: keyof Team, value: number) => void;
+  teams: TeamStats[];
+  showPredictions: boolean;
+  onTogglePredictions: () => void;
   onReset: () => void;
+  onResetPredictions: () => void;
+  stats: {
+    matchesPlayed: number;
+    totalGoals: number;
+    averageGoals: string;
+  };
 }
 
-export const StandingsView = ({ teams, onUpdateTeam, onReset }: StandingsViewProps) => {
-  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
-  const [goalDialogOpen, setGoalDialogOpen] = useState(false);
-
-  const sortedTeams = useMemo(() => {
-    return [...teams].sort((a, b) => {
-      const pointsDiff = calculatePoints(b) - calculatePoints(a);
-      if (pointsDiff !== 0) return pointsDiff;
-      
-      const gdDiff = calculateGoalDifference(b) - calculateGoalDifference(a);
-      if (gdDiff !== 0) return gdDiff;
-      
-      return b.goalsFor - a.goalsFor;
-    });
-  }, [teams]);
-
-  const totalGoals = teams.reduce((acc, team) => acc + team.goalsFor, 0);
-  const totalMatches = teams.reduce((acc, team) => acc + team.played, 0) / 2;
-
-  const handleOpenGoalDialog = (team: Team) => {
-    setSelectedTeam(team);
-    setGoalDialogOpen(true);
-  };
-
-  const handleGoalUpdate = (field: 'goalsFor' | 'goalsAgainst', value: string) => {
-    if (!selectedTeam) return;
-    const numValue = parseInt(value) || 0;
-    onUpdateTeam(selectedTeam.id, field, Math.max(0, numValue));
-    setSelectedTeam(prev => prev ? { ...prev, [field]: Math.max(0, numValue) } : null);
-  };
-
-  return (
-    <div className="h-full flex flex-col">
-      {/* Stats Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border bg-card/50">
-        <div className="flex gap-4 text-sm text-muted-foreground">
-          <span>⚽ {totalGoals} goles</span>
-          <span>📅 {totalMatches} partidos</span>
-        </div>
-        <Button variant="outline" size="sm" onClick={onReset} className="gap-2">
-          <RotateCcw className="w-4 h-4" />
-          <span className="hidden md:inline">Reiniciar</span>
-        </Button>
-      </div>
-
-      {/* Legend */}
-      <div className="flex flex-wrap gap-2 md:gap-4 text-xs p-3 border-b border-border bg-card/30">
-        <div className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-sm bg-primary"></div>
-          <span>Campeón</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-sm bg-success"></div>
-          <span>Libertadores</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-sm bg-accent"></div>
-          <span>Sudamericana</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-sm bg-destructive"></div>
-          <span>Descenso</span>
-        </div>
-      </div>
-
-      {/* Desktop Column Headers */}
-      <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs text-muted-foreground font-medium border-b border-border">
-        <div className="col-span-1 text-center">#</div>
-        <div className="col-span-3">Equipo</div>
-        <div className="col-span-6 grid grid-cols-5 text-center">
-          <span>PJ</span>
-          <span>G</span>
-          <span>E</span>
-          <span>P</span>
-          <span>DG</span>
-        </div>
-        <div className="col-span-2 text-center">PTS</div>
-      </div>
-
-      {/* Teams List */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="space-y-1 p-2">
-          <AnimatePresence mode="popLayout">
-            {sortedTeams.map((team, index) => (
-              <TeamRow
-                key={team.id}
-                team={team}
-                position={index + 1}
-                onUpdate={onUpdateTeam}
-                onOpenGoals={() => handleOpenGoalDialog(team)}
-              />
-            ))}
-          </AnimatePresence>
-        </div>
-      </div>
-
-      {/* Goal Dialog */}
-      <Dialog open={goalDialogOpen} onOpenChange={setGoalDialogOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
-              {selectedTeam && (
-                <>
-                  <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm"
-                    style={{ 
-                      backgroundColor: selectedTeam.primaryColor,
-                      color: getContrastColor(selectedTeam.primaryColor)
-                    }}
-                  >
-                    {selectedTeam.abbreviation}
-                  </div>
-                  <span>{selectedTeam.name}</span>
-                </>
-              )}
-            </DialogTitle>
-          </DialogHeader>
-          
-          {selectedTeam && (
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="goalsFor">Goles a Favor</Label>
-                <Input
-                  id="goalsFor"
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  value={selectedTeam.goalsFor || ""}
-                  onChange={(e) => handleGoalUpdate("goalsFor", e.target.value)}
-                  className="text-center text-lg font-bold h-12"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="goalsAgainst">Goles en Contra</Label>
-                <Input
-                  id="goalsAgainst"
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  value={selectedTeam.goalsAgainst || ""}
-                  onChange={(e) => handleGoalUpdate("goalsAgainst", e.target.value)}
-                  className="text-center text-lg font-bold h-12"
-                />
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+const getContrastColor = (hexColor: string): string => {
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? '#000000' : '#FFFFFF';
 };
-
-// Team Row Component
-interface TeamRowProps {
-  team: Team;
-  position: number;
-  onUpdate: (id: string, field: keyof Team, value: number) => void;
-  onOpenGoals: () => void;
-}
 
 const getPositionClass = (position: number): string => {
   if (position === 1) return "position-champion";
-  if (position <= 3) return "position-libertadores";
-  if (position <= 6) return "position-sudamericana";
-  if (position > 16) return "position-relegation";
+  if (position >= 2 && position <= 4) return "position-libertadores";
+  if (position >= 5 && position <= 6) return "position-sudamericana";
+  if (position >= 16) return "position-relegation";
   return "";
 };
 
-const TeamRow = ({ team, position, onUpdate, onOpenGoals }: TeamRowProps) => {
-  const points = calculatePoints(team);
-  const goalDiff = calculateGoalDifference(team);
-  const statusBadge = getStatusBadge(team.status);
+const getPositionIndicator = (position: number): string => {
+  if (position === 1) return "🏆";
+  if (position >= 2 && position <= 4) return "🔵";
+  if (position >= 5 && position <= 6) return "🟡";
+  if (position >= 16) return "🔴";
+  return "";
+};
 
-  const handleInputChange = (field: keyof Team, value: string) => {
-    const numValue = parseInt(value) || 0;
-    onUpdate(team.id, field, Math.max(0, numValue));
-  };
+interface TeamRowProps {
+  team: TeamStats;
+  position: number;
+  showPredictions: boolean;
+}
+
+const TeamRow = ({ team, position, showPredictions }: TeamRowProps) => {
+  const statusBadge = getStatusBadge(team.status);
+  const positionClass = getPositionClass(position);
+  
+  const played = showPredictions ? team.predictedPlayed : team.played;
+  const won = showPredictions ? team.predictedWon : team.won;
+  const drawn = showPredictions ? team.predictedDrawn : team.drawn;
+  const lost = showPredictions ? team.predictedLost : team.lost;
+  const gf = showPredictions ? team.predictedGoalsFor : team.goalsFor;
+  const ga = showPredictions ? team.predictedGoalsAgainst : team.goalsAgainst;
+  const gd = showPredictions ? team.predictedGoalDifference : team.goalDifference;
+  const points = showPredictions ? team.predictedPoints : team.points;
 
   return (
-    <motion.div
+    <motion.tr
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      transition={{
-        layout: { type: "spring", stiffness: 350, damping: 30 },
-        opacity: { duration: 0.2 }
-      }}
-      className={`team-row grid grid-cols-12 gap-1.5 md:gap-3 items-center p-2.5 md:p-3 rounded-lg bg-card hover:bg-secondary/50 group ${getPositionClass(position)}`}
+      transition={{ duration: 0.3 }}
+      className={`border-b border-border/50 hover:bg-muted/30 transition-colors ${positionClass}`}
     >
       {/* Position */}
-      <div className="col-span-1 flex items-center justify-center">
-        <span className="stat-display text-sm text-muted-foreground w-7 h-7 flex items-center justify-center rounded-full bg-muted">
-          {position}
-        </span>
-      </div>
-
-      {/* Team Info */}
-      <div className="col-span-4 md:col-span-3 flex items-center gap-2 min-w-0">
-        <div
-          className="w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center font-bold text-[10px] md:text-xs shrink-0"
-          style={{ 
-            backgroundColor: team.primaryColor,
-            color: getContrastColor(team.primaryColor)
-          }}
-        >
-          {team.abbreviation}
+      <td className="py-2 px-2 text-center">
+        <div className="flex items-center justify-center gap-1">
+          <span className="font-bold text-sm">{position}</span>
+          <span className="text-xs">{getPositionIndicator(position)}</span>
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="font-medium text-xs md:text-sm truncate">{team.name}</p>
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] text-muted-foreground truncate">{team.city}</span>
+      </td>
+
+      {/* Team */}
+      <td className="py-2 px-2">
+        <div className="flex items-center gap-2">
+          <div 
+            className="w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold shrink-0"
+            style={{ 
+              backgroundColor: team.primaryColor,
+              color: getContrastColor(team.primaryColor)
+            }}
+          >
+            {team.abbreviation}
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-medium truncate">{team.name}</span>
             {statusBadge && (
-              <span className={`${statusBadge.class} hidden lg:inline-block text-[10px]`}>
+              <span className={`text-[10px] ${statusBadge.class}`}>
                 {statusBadge.label}
               </span>
             )}
           </div>
         </div>
-      </div>
+      </td>
 
-      {/* Stats Inputs */}
-      <div className="col-span-5 md:col-span-6 grid grid-cols-5 gap-0.5 md:gap-1">
-        <StatInput
-          label="PJ"
-          value={team.played}
-          onChange={(v) => handleInputChange("played", v)}
-        />
-        <StatInput
-          label="G"
-          value={team.won}
-          onChange={(v) => handleInputChange("won", v)}
-        />
-        <StatInput
-          label="E"
-          value={team.drawn}
-          onChange={(v) => handleInputChange("drawn", v)}
-        />
-        <StatInput
-          label="P"
-          value={team.lost}
-          onChange={(v) => handleInputChange("lost", v)}
-        />
-        <div className="flex flex-col items-center">
-          <span className="text-[9px] md:text-[10px] text-muted-foreground mb-0.5">DG</span>
-          <button
-            onClick={onOpenGoals}
-            className={`w-9 md:w-10 h-8 md:h-9 flex items-center justify-center text-xs md:text-sm font-bold rounded-md bg-muted/50 hover:bg-muted transition-colors ${
-              goalDiff > 0 ? 'text-success' : goalDiff < 0 ? 'text-destructive' : 'text-muted-foreground'
-            }`}
-          >
-            {goalDiff > 0 ? `+${goalDiff}` : goalDiff}
-          </button>
-        </div>
-      </div>
-
-      {/* Points */}
-      <div className="col-span-2 flex items-center justify-center">
-        <motion.span
-          key={points}
-          initial={{ scale: 1.2 }}
-          animate={{ scale: 1 }}
-          className="text-lg md:text-xl font-bold text-primary tabular-nums"
-        >
-          {points}
-        </motion.span>
-      </div>
-    </motion.div>
+      {/* Stats */}
+      <td className="py-2 px-1 text-center text-sm text-muted-foreground hidden sm:table-cell">{played}</td>
+      <td className="py-2 px-1 text-center text-sm text-green-400 hidden md:table-cell">{won}</td>
+      <td className="py-2 px-1 text-center text-sm text-yellow-400 hidden md:table-cell">{drawn}</td>
+      <td className="py-2 px-1 text-center text-sm text-red-400 hidden md:table-cell">{lost}</td>
+      <td className="py-2 px-1 text-center text-sm hidden lg:table-cell">{gf}</td>
+      <td className="py-2 px-1 text-center text-sm hidden lg:table-cell">{ga}</td>
+      <td className="py-2 px-1 text-center text-sm font-medium">
+        <span className={gd > 0 ? "text-green-400" : gd < 0 ? "text-red-400" : "text-muted-foreground"}>
+          {gd > 0 ? `+${gd}` : gd}
+        </span>
+      </td>
+      <td className="py-2 px-2 text-center">
+        <span className="font-bold text-primary text-lg">{points}</span>
+      </td>
+    </motion.tr>
   );
 };
 
-// Stat Input Component
-interface StatInputProps {
-  label: string;
-  value: number;
-  onChange: (value: string) => void;
-}
+export const StandingsView = ({
+  teams,
+  showPredictions,
+  onTogglePredictions,
+  onReset,
+  onResetPredictions,
+  stats,
+}: StandingsViewProps) => {
+  return (
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="p-3 border-b border-border bg-card/30">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="text-sm">
+              <span className="text-muted-foreground">Partidos: </span>
+              <span className="font-bold">{stats.matchesPlayed}</span>
+            </div>
+            <div className="text-sm hidden sm:block">
+              <span className="text-muted-foreground">Goles: </span>
+              <span className="font-bold">{stats.totalGoals}</span>
+            </div>
+            <div className="text-sm hidden sm:block">
+              <span className="text-muted-foreground">Promedio: </span>
+              <span className="font-bold">{stats.averageGoals}</span>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onTogglePredictions}
+              className="gap-1 text-xs"
+            >
+              {showPredictions ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              <span className="hidden sm:inline">
+                {showPredictions ? "Con Predicciones" : "Solo Resultados"}
+              </span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onResetPredictions}
+              className="w-8 h-8"
+              title="Limpiar Predicciones"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
 
-const StatInput = ({ label, value, onChange }: StatInputProps) => (
-  <div className="flex flex-col items-center">
-    <span className="text-[9px] md:text-[10px] text-muted-foreground mb-0.5">{label}</span>
-    <input
-      type="number"
-      inputMode="numeric"
-      min={0}
-      value={value || ""}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-9 md:w-10 h-8 md:h-9 text-center text-xs md:text-sm bg-muted border border-border rounded-md 
-                 focus:ring-2 focus:ring-primary focus:border-primary 
-                 transition-all duration-200 text-foreground font-medium"
-    />
-  </div>
-);
+      {/* Legend */}
+      <div className="px-3 py-2 border-b border-border bg-card/20 flex flex-wrap gap-3 text-[10px]">
+        <span className="flex items-center gap-1">
+          <span className="w-2 h-2 rounded-full bg-champion"></span>
+          Campeón
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="w-2 h-2 rounded-full bg-libertadores"></span>
+          Libertadores
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="w-2 h-2 rounded-full bg-sudamericana"></span>
+          Sudamericana
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="w-2 h-2 rounded-full bg-relegation"></span>
+          Descenso
+        </span>
+      </div>
 
-function getContrastColor(hexColor: string): string {
-  const hex = hexColor.replace("#", "");
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5 ? "#000000" : "#FFFFFF";
-}
+      {/* Table */}
+      <div className="flex-1 overflow-y-auto">
+        <table className="w-full">
+          <thead className="sticky top-0 bg-background/95 backdrop-blur-sm">
+            <tr className="border-b border-border text-xs text-muted-foreground">
+              <th className="py-2 px-2 text-center w-10">#</th>
+              <th className="py-2 px-2 text-left">Equipo</th>
+              <th className="py-2 px-1 text-center hidden sm:table-cell">PJ</th>
+              <th className="py-2 px-1 text-center hidden md:table-cell">G</th>
+              <th className="py-2 px-1 text-center hidden md:table-cell">E</th>
+              <th className="py-2 px-1 text-center hidden md:table-cell">P</th>
+              <th className="py-2 px-1 text-center hidden lg:table-cell">GF</th>
+              <th className="py-2 px-1 text-center hidden lg:table-cell">GC</th>
+              <th className="py-2 px-1 text-center">DG</th>
+              <th className="py-2 px-2 text-center">Pts</th>
+            </tr>
+          </thead>
+          <tbody>
+            <AnimatePresence mode="popLayout">
+              {teams.map((team, index) => (
+                <TeamRow
+                  key={team.id}
+                  team={team}
+                  position={index + 1}
+                  showPredictions={showPredictions}
+                />
+              ))}
+            </AnimatePresence>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};

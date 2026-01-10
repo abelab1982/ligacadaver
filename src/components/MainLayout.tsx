@@ -1,61 +1,33 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
 import { Calendar, Trophy } from "lucide-react";
-import { Team, initialTeams } from "@/data/teams";
 import { Header } from "./Header";
 import { FixtureView } from "./FixtureView";
 import { StandingsView } from "./StandingsView";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useLeagueEngine } from "@/hooks/useLeagueEngine";
+import { useState } from "react";
 
 type ViewType = "fixture" | "tabla";
 
 export const MainLayout = () => {
-  const [teams, setTeams] = useState<Team[]>(initialTeams);
   const [activeTab, setActiveTab] = useState<ViewType>("tabla");
+  
+  const {
+    teams,
+    currentRound,
+    totalRounds,
+    showPredictions,
+    stats,
+    setCurrentRound,
+    setShowPredictions,
+    updatePrediction,
+    confirmMatchResult,
+    resetPredictions,
+    getTeamById,
+    getMatchesByRound,
+  } = useLeagueEngine();
 
-  const handleUpdateTeam = (id: string, field: keyof Team, value: number) => {
-    setTeams(prev => prev.map(team => 
-      team.id === id ? { ...team, [field]: value } : team
-    ));
-  };
-
-  const handleMatchResult = (homeId: string, awayId: string, homeScore: number, awayScore: number) => {
-    setTeams(prev => prev.map(team => {
-      if (team.id === homeId) {
-        const won = homeScore > awayScore ? 1 : 0;
-        const drawn = homeScore === awayScore ? 1 : 0;
-        const lost = homeScore < awayScore ? 1 : 0;
-        return {
-          ...team,
-          played: team.played + 1,
-          won: team.won + won,
-          drawn: team.drawn + drawn,
-          lost: team.lost + lost,
-          goalsFor: team.goalsFor + homeScore,
-          goalsAgainst: team.goalsAgainst + awayScore,
-        };
-      }
-      if (team.id === awayId) {
-        const won = awayScore > homeScore ? 1 : 0;
-        const drawn = homeScore === awayScore ? 1 : 0;
-        const lost = awayScore < homeScore ? 1 : 0;
-        return {
-          ...team,
-          played: team.played + 1,
-          won: team.won + won,
-          drawn: team.drawn + drawn,
-          lost: team.lost + lost,
-          goalsFor: team.goalsFor + awayScore,
-          goalsAgainst: team.goalsAgainst + homeScore,
-        };
-      }
-      return team;
-    }));
-  };
-
-  const handleReset = () => {
-    setTeams(initialTeams);
-  };
+  const currentMatches = getMatchesByRound(currentRound);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -98,7 +70,15 @@ export const MainLayout = () => {
                 <h2 className="font-semibold">Fixture</h2>
               </div>
               <div className="flex-1 overflow-hidden">
-                <FixtureView teams={teams} onMatchResult={handleMatchResult} />
+                <FixtureView 
+                  matches={currentMatches}
+                  currentRound={currentRound}
+                  totalRounds={totalRounds}
+                  onRoundChange={setCurrentRound}
+                  onUpdatePrediction={updatePrediction}
+                  onConfirmResult={confirmMatchResult}
+                  getTeamById={getTeamById}
+                />
               </div>
             </div>
 
@@ -110,9 +90,12 @@ export const MainLayout = () => {
               </div>
               <div className="flex-1 overflow-hidden">
                 <StandingsView 
-                  teams={teams} 
-                  onUpdateTeam={handleUpdateTeam} 
-                  onReset={handleReset} 
+                  teams={teams}
+                  showPredictions={showPredictions}
+                  onTogglePredictions={() => setShowPredictions(!showPredictions)}
+                  onReset={resetAll}
+                  onResetPredictions={resetPredictions}
+                  stats={stats}
                 />
               </div>
             </div>
@@ -128,7 +111,15 @@ export const MainLayout = () => {
                 exit={{ opacity: 0, x: 20 }}
                 className="h-full"
               >
-                <FixtureView teams={teams} onMatchResult={handleMatchResult} />
+                <FixtureView 
+                  matches={currentMatches}
+                  currentRound={currentRound}
+                  totalRounds={totalRounds}
+                  onRoundChange={setCurrentRound}
+                  onUpdatePrediction={updatePrediction}
+                  onConfirmResult={confirmMatchResult}
+                  getTeamById={getTeamById}
+                />
               </motion.div>
             ) : (
               <motion.div
@@ -139,9 +130,12 @@ export const MainLayout = () => {
                 className="h-full"
               >
                 <StandingsView 
-                  teams={teams} 
-                  onUpdateTeam={handleUpdateTeam} 
-                  onReset={handleReset} 
+                  teams={teams}
+                  showPredictions={showPredictions}
+                  onTogglePredictions={() => setShowPredictions(!showPredictions)}
+                  onReset={resetAll}
+                  onResetPredictions={resetPredictions}
+                  stats={stats}
                 />
               </motion.div>
             )}
