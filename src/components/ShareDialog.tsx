@@ -1,12 +1,13 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { toPng } from "html-to-image";
-import { Share2, Download, X, Loader2 } from "lucide-react";
+import { Share2, Download, X, Loader2, AlertCircle, Copy, Link } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { TeamStats } from "@/hooks/useLeagueEngine";
 import { useToast } from "@/hooks/use-toast";
@@ -38,8 +39,15 @@ const getZoneColor = (position: number): string => {
 export const ShareDialog = ({ open, onOpenChange, teams, showPredictions }: ShareDialogProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [imageData, setImageData] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [canShare, setCanShare] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Check if Web Share API is available
+  useEffect(() => {
+    setCanShare(typeof navigator !== 'undefined' && !!navigator.share);
+  }, []);
 
   const currentDate = new Date().toLocaleDateString("es-PE", {
     day: "numeric",
@@ -48,21 +56,33 @@ export const ShareDialog = ({ open, onOpenChange, teams, showPredictions }: Shar
   });
 
   const generateImage = useCallback(async () => {
-    if (!previewRef.current) return;
+    if (!previewRef.current) {
+      console.error("[ShareDialog] previewRef is null");
+      setGenerationError("Error interno: referencia no disponible");
+      return;
+    }
     
     setIsGenerating(true);
+    setGenerationError(null);
+    console.log("[ShareDialog] Starting image generation...");
+    
     try {
       const dataUrl = await toPng(previewRef.current, {
         quality: 1,
         pixelRatio: 2,
         backgroundColor: "#0f172a",
+        skipFonts: true, // Skip font loading to avoid CORS issues
+        cacheBust: true, // Avoid cache issues
       });
+      console.log("[ShareDialog] Image generated successfully, length:", dataUrl.length);
       setImageData(dataUrl);
     } catch (error) {
-      console.error("Error generating image:", error);
+      console.error("[ShareDialog] Error generating image:", error);
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+      setGenerationError(`No se pudo generar la imagen: ${errorMessage}`);
       toast({
-        title: "Error",
-        description: "No se pudo generar la imagen",
+        title: "Error al generar imagen",
+        description: "Intenta de nuevo o descarga una captura de pantalla",
         variant: "destructive",
       });
     } finally {
@@ -126,11 +146,35 @@ export const ShareDialog = ({ open, onOpenChange, teams, showPredictions }: Shar
     }
   }, [imageData, toast]);
 
+  const handleCopyLink = useCallback(async () => {
+    const url = window.location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({
+        title: "¡Link copiado!",
+        description: "El enlace se ha copiado al portapapeles",
+      });
+    } catch {
+      toast({
+        title: "Error",
+        description: "No se pudo copiar el enlace",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
+  const handleRetry = useCallback(() => {
+    setGenerationError(null);
+    setImageData(null);
+    setTimeout(generateImage, 100);
+  }, [generateImage]);
+
   // Generate image when dialog opens
   const handleOpenChange = (newOpen: boolean) => {
     onOpenChange(newOpen);
     if (newOpen) {
       setImageData(null);
+      setGenerationError(null);
       setTimeout(generateImage, 100);
     }
   };
@@ -143,9 +187,12 @@ export const ShareDialog = ({ open, onOpenChange, teams, showPredictions }: Shar
             <Share2 className="w-5 h-5 text-primary" />
             Compartir Tabla
           </DialogTitle>
+          <DialogDescription>
+            Genera una imagen de tu predicción para compartir
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto py-4">
+        <div className="flex-1 overflow-y-auto py-4 relative">
           {/* Preview Container - This gets converted to image */}
           <div 
             ref={previewRef}
@@ -231,34 +278,85 @@ export const ShareDialog = ({ open, onOpenChange, teams, showPredictions }: Shar
 
           {/* Loading State */}
           {isGenerating && (
-            <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+            <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-xl">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="w-5 h-5 animate-spin" />
                 <span>Generando imagen...</span>
               </div>
             </div>
           )}
+
+          {/* Error State */}
+          {generationError && !isGenerating && (
+            <div className="mt-3 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm text-destructive">{generationError}</p>
+                  <Button 
+                    variant="link" 
+                    size="sm" 
+                    className="px-0 h-auto text-destructive"
+                    onClick={handleRetry}
+                  >
+                    Intentar de nuevo
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Success indicator */}
+          {imageData && !isGenerating && (
+            <div className="mt-3 p-2 bg-green-500/10 border border-green-500/20 rounded-lg">
+              <p className="text-sm text-green-500 text-center">
+                ✓ Imagen lista para descargar o compartir
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2 pt-4 border-t border-border">
-          <Button
-            variant="outline"
-            className="flex-1 gap-2"
-            onClick={handleDownload}
-            disabled={!imageData || isGenerating}
-          >
-            <Download className="w-4 h-4" />
-            Descargar PNG
-          </Button>
-          <Button
-            className="flex-1 gap-2"
-            onClick={handleShare}
-            disabled={!imageData || isGenerating}
-          >
-            <Share2 className="w-4 h-4" />
-            Compartir
-          </Button>
+        <div className="flex flex-col gap-2 pt-4 border-t border-border">
+          {/* Primary actions */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1 gap-2"
+              onClick={handleDownload}
+              disabled={!imageData || isGenerating}
+            >
+              <Download className="w-4 h-4" />
+              Descargar PNG
+            </Button>
+            
+            {canShare ? (
+              <Button
+                className="flex-1 gap-2"
+                onClick={handleShare}
+                disabled={!imageData || isGenerating}
+              >
+                <Share2 className="w-4 h-4" />
+                Compartir
+              </Button>
+            ) : (
+              <Button
+                variant="secondary"
+                className="flex-1 gap-2"
+                onClick={handleCopyLink}
+              >
+                <Link className="w-4 h-4" />
+                Copiar Link
+              </Button>
+            )}
+          </div>
+
+          {/* Status info */}
+          {isGenerating && (
+            <p className="text-xs text-muted-foreground text-center">
+              Preparando imagen...
+            </p>
+          )}
         </div>
       </DialogContent>
     </Dialog>
