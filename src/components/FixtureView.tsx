@@ -502,6 +502,8 @@ export const FixtureView = ({
           onOpenChange={setH2hOpen}
           homeTeamName={h2hTeams.home.name}
           awayTeamName={h2hTeams.away.name}
+          homeTeamId={h2hTeams.home.id}
+          awayTeamId={h2hTeams.away.id}
           homeApiId={h2hTeams.home.apiTeamId}
           awayApiId={h2hTeams.away.apiTeamId}
         />
