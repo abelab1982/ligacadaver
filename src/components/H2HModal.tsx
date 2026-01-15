@@ -2,8 +2,9 @@ import { useEffect, useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, AlertCircle, Swords, ChevronDown, ChevronUp, Calendar } from "lucide-react";
 import { useH2H, H2HData, H2HFixture } from "@/hooks/useH2H";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
+import { Link } from "react-router-dom";
 import { TeamLogo } from "@/components/TeamLogo";
 
 interface H2HModalProps {
@@ -306,11 +307,11 @@ function KPIsSection({ playedFixtures, homeTeamName, awayTeamName, homeApiId }: 
       <div className="bg-card/50 rounded-lg p-2.5 text-center">
         {lastMatch ? (
           <>
-            <div className="text-sm font-bold">
+            <div className="text-base font-bold text-primary">
               {lastMatch.homeGoals}-{lastMatch.awayGoals}
             </div>
             <div className="text-[9px] text-muted-foreground leading-tight">
-              Último<br/>{format(new Date(lastMatch.date), "dd/MM/yy")}
+              Último enfrentamiento<br/>{format(new Date(lastMatch.date), "dd/MM/yy")}
             </div>
           </>
         ) : (
@@ -350,7 +351,7 @@ function Last5Section({ playedFixtures, homeTeamName, awayTeamName, homeApiId }:
       <div className="flex justify-between gap-4">
         {/* Home team perspective */}
         <div className="flex-1">
-          <div className="text-[10px] text-muted-foreground mb-1.5">{getAbbr(homeTeamName)}</div>
+          <div className="text-[10px] text-muted-foreground mb-1">{getAbbr(homeTeamName)}</div>
           <div className="flex gap-1">
             {last5.map((fixture, idx) => {
               // Determine result from homeTeam perspective
@@ -368,11 +369,12 @@ function Last5Section({ playedFixtures, homeTeamName, awayTeamName, homeApiId }:
               return <ResultChip key={idx} result={result} />;
             })}
           </div>
+          <div className="text-[9px] text-muted-foreground/70 mt-1">Forma H2H</div>
         </div>
         
         {/* Away team perspective */}
         <div className="flex-1 text-right">
-          <div className="text-[10px] text-muted-foreground mb-1.5">{getAbbr(awayTeamName)}</div>
+          <div className="text-[10px] text-muted-foreground mb-1">{getAbbr(awayTeamName)}</div>
           <div className="flex gap-1 justify-end">
             {last5.map((fixture, idx) => {
               // Determine result from awayTeam perspective
@@ -390,6 +392,7 @@ function Last5Section({ playedFixtures, homeTeamName, awayTeamName, homeApiId }:
               return <ResultChip key={idx} result={result} />;
             })}
           </div>
+          <div className="text-[9px] text-muted-foreground/70 mt-1">Forma H2H</div>
         </div>
       </div>
     </div>
@@ -403,11 +406,11 @@ function FixtureRow({ fixture, homeApiId, isFirst }: { fixture: H2HFixture; home
   const awayAbbr = getAbbr(fixture.awayTeam);
   
   return (
-    <div className={`flex items-center gap-2 border-b border-border/50 last:border-0 ${isFirst ? "py-2.5" : "py-2"}`}>
+    <div className={`flex items-center gap-2 border-b border-border/50 last:border-0 ${isFirst ? "py-3 bg-primary/5 rounded-lg px-2 -mx-2" : "py-2"}`}>
       {/* Date + Label for first */}
       <div className="shrink-0 w-16">
         {isFirst && (
-          <div className="text-[9px] text-primary font-medium mb-0.5">Último encuentro</div>
+          <div className="text-[9px] text-primary font-semibold mb-0.5">Último enfrentamiento</div>
         )}
         <div className={`text-muted-foreground ${isFirst ? "text-[10px]" : "text-[10px]"}`}>
           {format(new Date(fixture.date), "dd MMM yy", { locale: es })}
@@ -416,15 +419,15 @@ function FixtureRow({ fixture, homeApiId, isFirst }: { fixture: H2HFixture; home
       
       {/* Teams and score */}
       <div className="flex-1 flex items-center justify-center gap-2">
-        <span className={`${isFirst ? "text-xs" : "text-xs"} ${fixture.winner === "home" ? "font-bold" : "text-muted-foreground"}`}>
+        <span className={`${isFirst ? "text-sm font-medium" : "text-xs"} ${fixture.winner === "home" ? "font-bold text-foreground" : "text-muted-foreground"}`}>
           {homeAbbr}
         </span>
         
-        <div className={`bg-background px-2 py-0.5 rounded font-bold min-w-[44px] text-center ${isFirst ? "text-base" : "text-sm"}`}>
+        <div className={`bg-background px-2.5 py-1 rounded font-bold min-w-[48px] text-center shadow-sm ${isFirst ? "text-lg" : "text-sm"}`}>
           {fixture.homeGoals} - {fixture.awayGoals}
         </div>
         
-        <span className={`${isFirst ? "text-xs" : "text-xs"} ${fixture.winner === "away" ? "font-bold" : "text-muted-foreground"}`}>
+        <span className={`${isFirst ? "text-sm font-medium" : "text-xs"} ${fixture.winner === "away" ? "font-bold text-foreground" : "text-muted-foreground"}`}>
           {awayAbbr}
         </span>
       </div>
@@ -614,11 +617,26 @@ export function H2HModal({
           )}
         </div>
         
-        {/* Footer with timestamp */}
+        {/* CTA soft link */}
+        {hasPlayedMatches && (
+          <div className="px-4 pb-2 pt-0">
+            <p className="text-[11px] text-muted-foreground text-center">
+              ¿Y si lo simulas ahora?{" "}
+              <button 
+                onClick={() => onOpenChange(false)}
+                className="text-primary hover:underline font-medium"
+              >
+                Prueba este partido en la calculadora
+              </button>
+            </p>
+          </div>
+        )}
+        
+        {/* Footer with relative timestamp */}
         {data?.cachedAt && (
           <div className="px-4 pb-3 pt-0">
             <p className="text-[10px] text-muted-foreground/60 text-center">
-              Actualizado: {format(new Date(data.cachedAt), "dd/MM/yy HH:mm")}
+              Actualizado {formatDistanceToNow(new Date(data.cachedAt), { addSuffix: true, locale: es })}
             </p>
           </div>
         )}
