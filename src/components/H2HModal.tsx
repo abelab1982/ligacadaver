@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, AlertCircle, Swords, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, AlertCircle, Swords, ChevronDown, ChevronUp, Calendar } from "lucide-react";
 import { useH2H, H2HData, H2HFixture } from "@/hooks/useH2H";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Progress } from "@/components/ui/progress";
 import { TeamLogo } from "@/components/TeamLogo";
 
 interface H2HModalProps {
@@ -41,6 +40,20 @@ function getAbbr(name: string): string {
     "Dep. Moquegua": "MOQ",
   };
   return abbrevMap[name] || name.substring(0, 3).toUpperCase();
+}
+
+// Helper to filter played fixtures (with scores) and sort by date DESC
+function getPlayedFixtures(fixtures: H2HFixture[]): H2HFixture[] {
+  return fixtures
+    .filter(f => f.homeGoals !== null && f.awayGoals !== null && f.homeGoals >= 0 && f.awayGoals >= 0)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
+// Helper to get future fixtures (no score yet)
+function getFutureFixtures(fixtures: H2HFixture[]): H2HFixture[] {
+  return fixtures
+    .filter(f => f.homeGoals === null || f.awayGoals === null)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 
 // Result chip component
@@ -115,9 +128,59 @@ function LoadingSkeleton() {
   );
 }
 
+// Next match section (for future fixtures)
+function NextMatchSection({ fixture, homeApiId }: { fixture: H2HFixture; homeApiId: number }) {
+  const isRequestedHomeTeamHome = fixture.homeId === homeApiId;
+  const homeAbbr = getAbbr(fixture.homeTeam);
+  const awayAbbr = getAbbr(fixture.awayTeam);
+  
+  return (
+    <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+      <div className="flex items-center gap-1.5 text-[10px] text-primary font-medium mb-2">
+        <Calendar className="w-3 h-3" />
+        Próximo partido
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium">{homeAbbr}</span>
+        <div className="text-center">
+          <div className="text-[10px] text-muted-foreground">
+            {format(new Date(fixture.date), "dd MMM yyyy", { locale: es })}
+          </div>
+        </div>
+        <span className="text-xs font-medium">{awayAbbr}</span>
+      </div>
+    </div>
+  );
+}
+
 // Summary row and progress bar
-function SummarySection({ data, homeTeamName, awayTeamName }: { data: H2HData; homeTeamName: string; awayTeamName: string }) {
-  const { stats } = data;
+function SummarySection({ playedFixtures, homeTeamName, awayTeamName, homeApiId }: { 
+  playedFixtures: H2HFixture[]; 
+  homeTeamName: string; 
+  awayTeamName: string;
+  homeApiId: number;
+}) {
+  // Calculate stats from played fixtures only
+  const stats = useMemo(() => {
+    let homeWins = 0;
+    let awayWins = 0;
+    let draws = 0;
+    
+    playedFixtures.forEach(fixture => {
+      const isHomeTeamHome = fixture.homeId === homeApiId;
+      
+      if (fixture.winner === "draw") {
+        draws++;
+      } else if ((fixture.winner === "home" && isHomeTeamHome) || (fixture.winner === "away" && !isHomeTeamHome)) {
+        homeWins++;
+      } else {
+        awayWins++;
+      }
+    });
+    
+    return { homeWins, awayWins, draws, total: playedFixtures.length };
+  }, [playedFixtures, homeApiId]);
+  
   const total = stats.total;
   
   // Calculate percentages
@@ -176,35 +239,59 @@ function SummarySection({ data, homeTeamName, awayTeamName }: { data: H2HData; h
 }
 
 // KPIs section
-function KPIsSection({ data, homeTeamName, awayTeamName }: { data: H2HData; homeTeamName: string; awayTeamName: string }) {
-  const { stats, fixtures } = data;
-  const total = stats.total;
+function KPIsSection({ playedFixtures, homeTeamName, awayTeamName, homeApiId }: { 
+  playedFixtures: H2HFixture[]; 
+  homeTeamName: string; 
+  awayTeamName: string;
+  homeApiId: number;
+}) {
+  const total = playedFixtures.length;
+  
+  // Calculate stats from played fixtures
+  const { homeWins, awayWins, draws, totalGoals } = useMemo(() => {
+    let homeWins = 0;
+    let awayWins = 0;
+    let draws = 0;
+    let totalGoals = 0;
+    
+    playedFixtures.forEach(fixture => {
+      const isHomeTeamHome = fixture.homeId === homeApiId;
+      totalGoals += (fixture.homeGoals || 0) + (fixture.awayGoals || 0);
+      
+      if (fixture.winner === "draw") {
+        draws++;
+      } else if ((fixture.winner === "home" && isHomeTeamHome) || (fixture.winner === "away" && !isHomeTeamHome)) {
+        homeWins++;
+      } else {
+        awayWins++;
+      }
+    });
+    
+    return { homeWins, awayWins, draws, totalGoals };
+  }, [playedFixtures, homeApiId]);
   
   // Average goals per match
-  const totalGoals = stats.homeGoals + stats.awayGoals;
   const avgGoals = total > 0 ? (totalGoals / total).toFixed(1) : "0";
   
-  // Last match
-  const lastMatch = fixtures[0];
+  // Last match (first in sorted array)
+  const lastMatch = playedFixtures[0];
   
   // Dominance calculation
-  const homePct = total > 0 ? Math.round((stats.homeWins / total) * 100) : 0;
-  const awayPct = total > 0 ? Math.round((stats.awayWins / total) * 100) : 0;
-  const drawPct = total > 0 ? Math.round((stats.draws / total) * 100) : 0;
+  const homePct = total > 0 ? Math.round((homeWins / total) * 100) : 0;
+  const awayPct = total > 0 ? Math.round((awayWins / total) * 100) : 0;
+  const drawPct = total > 0 ? Math.round((draws / total) * 100) : 0;
   
   let dominanceText = "";
   let dominanceColor = "text-muted-foreground";
   
-  if (homePct > awayPct && homePct > drawPct && homePct >= 50) {
-    dominanceText = `${getAbbr(homeTeamName)} domina ${homePct}%`;
+  if (homePct > awayPct && homePct > drawPct && homePct >= 40) {
+    dominanceText = `${getAbbr(homeTeamName)} (${homePct}%)`;
     dominanceColor = "text-green-400";
-  } else if (awayPct > homePct && awayPct > drawPct && awayPct >= 50) {
-    dominanceText = `${getAbbr(awayTeamName)} domina ${awayPct}%`;
+  } else if (awayPct > homePct && awayPct > drawPct && awayPct >= 40) {
+    dominanceText = `${getAbbr(awayTeamName)} (${awayPct}%)`;
     dominanceColor = "text-red-400";
-  } else if (drawPct >= homePct && drawPct >= awayPct) {
-    dominanceText = "Historial equilibrado";
   } else {
-    dominanceText = "Sin dominio claro";
+    dominanceText = "Equilibrado";
   }
   
   return (
@@ -212,7 +299,7 @@ function KPIsSection({ data, homeTeamName, awayTeamName }: { data: H2HData; home
       {/* Avg goals */}
       <div className="bg-card/50 rounded-lg p-2.5 text-center">
         <div className="text-lg font-bold text-primary">{avgGoals}</div>
-        <div className="text-[10px] text-muted-foreground leading-tight">Goles/partido</div>
+        <div className="text-[9px] text-muted-foreground leading-tight">Prom. goles<br/>por partido</div>
       </div>
       
       {/* Last match */}
@@ -222,8 +309,8 @@ function KPIsSection({ data, homeTeamName, awayTeamName }: { data: H2HData; home
             <div className="text-sm font-bold">
               {lastMatch.homeGoals}-{lastMatch.awayGoals}
             </div>
-            <div className="text-[10px] text-muted-foreground leading-tight">
-              {format(new Date(lastMatch.date), "dd/MM/yy")}
+            <div className="text-[9px] text-muted-foreground leading-tight">
+              Último<br/>{format(new Date(lastMatch.date), "dd/MM/yy")}
             </div>
           </>
         ) : (
@@ -232,9 +319,12 @@ function KPIsSection({ data, homeTeamName, awayTeamName }: { data: H2HData; home
       </div>
       
       {/* Dominance */}
-      <div className="bg-card/50 rounded-lg p-2.5 text-center flex items-center justify-center">
-        <div className={`text-[10px] font-medium leading-tight ${dominanceColor}`}>
+      <div className="bg-card/50 rounded-lg p-2.5 text-center">
+        <div className={`text-xs font-bold ${dominanceColor}`}>
           {dominanceText}
+        </div>
+        <div className="text-[9px] text-muted-foreground leading-tight">
+          Dominio<br/>histórico
         </div>
       </div>
     </div>
@@ -242,20 +332,20 @@ function KPIsSection({ data, homeTeamName, awayTeamName }: { data: H2HData; home
 }
 
 // Last 5 form section
-function Last5Section({ data, homeTeamName, awayTeamName, homeApiId }: { 
-  data: H2HData; 
+function Last5Section({ playedFixtures, homeTeamName, awayTeamName, homeApiId }: { 
+  playedFixtures: H2HFixture[]; 
   homeTeamName: string; 
   awayTeamName: string;
   homeApiId: number;
 }) {
-  // Get last 5 fixtures with results for each team
-  const last5 = data.fixtures.slice(0, 5);
+  // Get last 5 played fixtures
+  const last5 = playedFixtures.slice(0, 5);
   
   if (last5.length === 0) return null;
   
   return (
     <div className="space-y-2">
-      <div className="text-xs font-medium text-muted-foreground">Últimos 5 enfrentamientos</div>
+      <div className="text-xs font-medium text-muted-foreground">Últimos {last5.length} enfrentamientos</div>
       
       <div className="flex justify-between gap-4">
         {/* Home team perspective */}
@@ -307,29 +397,34 @@ function Last5Section({ data, homeTeamName, awayTeamName, homeApiId }: {
 }
 
 // Single fixture row
-function FixtureRow({ fixture, homeApiId }: { fixture: H2HFixture; homeApiId: number }) {
+function FixtureRow({ fixture, homeApiId, isFirst }: { fixture: H2HFixture; homeApiId: number; isFirst: boolean }) {
   const isRequestedHomeTeamHome = fixture.homeId === homeApiId;
   const homeAbbr = getAbbr(fixture.homeTeam);
   const awayAbbr = getAbbr(fixture.awayTeam);
   
   return (
-    <div className="flex items-center gap-2 py-2 border-b border-border/50 last:border-0">
-      {/* Date */}
-      <div className="text-[10px] text-muted-foreground w-14 shrink-0">
-        {format(new Date(fixture.date), "dd MMM yy", { locale: es })}
+    <div className={`flex items-center gap-2 border-b border-border/50 last:border-0 ${isFirst ? "py-2.5" : "py-2"}`}>
+      {/* Date + Label for first */}
+      <div className="shrink-0 w-16">
+        {isFirst && (
+          <div className="text-[9px] text-primary font-medium mb-0.5">Último encuentro</div>
+        )}
+        <div className={`text-muted-foreground ${isFirst ? "text-[10px]" : "text-[10px]"}`}>
+          {format(new Date(fixture.date), "dd MMM yy", { locale: es })}
+        </div>
       </div>
       
       {/* Teams and score */}
       <div className="flex-1 flex items-center justify-center gap-2">
-        <span className={`text-xs ${fixture.winner === "home" ? "font-bold" : "text-muted-foreground"}`}>
+        <span className={`${isFirst ? "text-xs" : "text-xs"} ${fixture.winner === "home" ? "font-bold" : "text-muted-foreground"}`}>
           {homeAbbr}
         </span>
         
-        <div className="bg-background px-2 py-0.5 rounded text-sm font-bold min-w-[44px] text-center">
+        <div className={`bg-background px-2 py-0.5 rounded font-bold min-w-[44px] text-center ${isFirst ? "text-base" : "text-sm"}`}>
           {fixture.homeGoals} - {fixture.awayGoals}
         </div>
         
-        <span className={`text-xs ${fixture.winner === "away" ? "font-bold" : "text-muted-foreground"}`}>
+        <span className={`${isFirst ? "text-xs" : "text-xs"} ${fixture.winner === "away" ? "font-bold" : "text-muted-foreground"}`}>
           {awayAbbr}
         </span>
       </div>
@@ -349,21 +444,27 @@ function FixtureRow({ fixture, homeApiId }: { fixture: H2HFixture; homeApiId: nu
 }
 
 // History section with expand/collapse
-function HistorySection({ data, homeApiId }: { data: H2HData; homeApiId: number }) {
+function HistorySection({ playedFixtures, homeApiId }: { playedFixtures: H2HFixture[]; homeApiId: number }) {
   const [expanded, setExpanded] = useState(false);
-  const fixtures = data.fixtures;
-  const total = fixtures.length;
+  const total = playedFixtures.length;
   
-  const displayedFixtures = expanded ? fixtures : fixtures.slice(0, 3);
+  const displayedFixtures = expanded ? playedFixtures : playedFixtures.slice(0, 3);
   const hasMore = total > 3;
+  
+  if (total === 0) return null;
   
   return (
     <div className="space-y-1">
-      <div className="text-xs font-medium text-muted-foreground">Historial</div>
+      <div className="text-xs font-medium text-muted-foreground">Historial ({total} partidos)</div>
       
       <div className={`${expanded ? "max-h-48 overflow-y-auto" : ""}`}>
-        {displayedFixtures.map((fixture) => (
-          <FixtureRow key={fixture.id} fixture={fixture} homeApiId={homeApiId} />
+        {displayedFixtures.map((fixture, index) => (
+          <FixtureRow 
+            key={fixture.id} 
+            fixture={fixture} 
+            homeApiId={homeApiId} 
+            isFirst={index === 0}
+          />
         ))}
       </div>
       
@@ -375,7 +476,7 @@ function HistorySection({ data, homeApiId }: { data: H2HData; homeApiId: number 
           {expanded ? (
             <>
               <ChevronUp className="w-3.5 h-3.5" />
-              Mostrar menos
+              Ocultar historial
             </>
           ) : (
             <>
@@ -439,6 +540,19 @@ export function H2HModal({
     }
   }, [open, homeApiId, awayApiId, fetchH2H, reset]);
 
+  // Process fixtures: separate played vs future, sort by date DESC
+  const { playedFixtures, futureFixtures } = useMemo(() => {
+    if (!data) return { playedFixtures: [], futureFixtures: [] };
+    
+    return {
+      playedFixtures: getPlayedFixtures(data.fixtures),
+      futureFixtures: getFutureFixtures(data.fixtures),
+    };
+  }, [data]);
+
+  const nextMatch = futureFixtures[0];
+  const hasPlayedMatches = playedFixtures.length > 0;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[340px] sm:max-w-md p-0 gap-0 overflow-hidden">
@@ -463,14 +577,39 @@ export function H2HModal({
           
           {error && <ErrorState error={error} />}
           
-          {data && data.fixtures.length === 0 && <EmptyState />}
+          {data && !hasPlayedMatches && !nextMatch && <EmptyState />}
           
-          {data && data.fixtures.length > 0 && (
+          {data && (hasPlayedMatches || nextMatch) && (
             <>
-              <SummarySection data={data} homeTeamName={homeTeamName} awayTeamName={awayTeamName} />
-              <KPIsSection data={data} homeTeamName={homeTeamName} awayTeamName={awayTeamName} />
-              <Last5Section data={data} homeTeamName={homeTeamName} awayTeamName={awayTeamName} homeApiId={homeApiId} />
-              <HistorySection data={data} homeApiId={homeApiId} />
+              {/* Next match section */}
+              {nextMatch && (
+                <NextMatchSection fixture={nextMatch} homeApiId={homeApiId} />
+              )}
+              
+              {/* Stats sections - only if we have played matches */}
+              {hasPlayedMatches && (
+                <>
+                  <SummarySection 
+                    playedFixtures={playedFixtures} 
+                    homeTeamName={homeTeamName} 
+                    awayTeamName={awayTeamName}
+                    homeApiId={homeApiId}
+                  />
+                  <KPIsSection 
+                    playedFixtures={playedFixtures} 
+                    homeTeamName={homeTeamName} 
+                    awayTeamName={awayTeamName}
+                    homeApiId={homeApiId}
+                  />
+                  <Last5Section 
+                    playedFixtures={playedFixtures} 
+                    homeTeamName={homeTeamName} 
+                    awayTeamName={awayTeamName} 
+                    homeApiId={homeApiId} 
+                  />
+                  <HistorySection playedFixtures={playedFixtures} homeApiId={homeApiId} />
+                </>
+              )}
             </>
           )}
         </div>
