@@ -557,10 +557,17 @@ export function H2HModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[340px] sm:max-w-md p-0 gap-0 overflow-hidden">
-        {/* Header */}
-        <DialogHeader className="px-4 pt-4 pb-3 border-b border-border/50">
-          <DialogTitle className="flex items-center justify-center gap-2 text-sm font-semibold">
+      <DialogContent 
+        className="max-w-[340px] sm:max-w-md p-0 gap-0"
+        aria-labelledby="h2h-dialog-title"
+        aria-describedby="h2h-dialog-description"
+      >
+        {/* Sticky Header - always visible */}
+        <DialogHeader className="sticky top-0 z-40 px-4 pt-4 pb-3 border-b border-border/50 bg-background/95 backdrop-blur-sm shrink-0">
+          <DialogTitle 
+            id="h2h-dialog-title"
+            className="flex items-center justify-center gap-2 text-sm font-semibold pr-8"
+          >
             <Swords className="w-4 h-4 text-primary" />
             Head to Head
           </DialogTitle>
@@ -571,10 +578,18 @@ export function H2HModal({
             <span className="text-xs font-bold text-muted-foreground">VS</span>
             <TeamMiniCard teamId={awayTeamId} teamName={awayTeamName} side="right" />
           </div>
+          
+          {/* Screen reader description */}
+          <span id="h2h-dialog-description" className="sr-only">
+            Estadísticas de enfrentamientos entre {homeTeamName} y {awayTeamName}
+          </span>
         </DialogHeader>
 
-        {/* Content */}
-        <div className="px-4 py-4 space-y-4">
+        {/* Scrollable Content */}
+        <div 
+          className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-4"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {loading && <LoadingSkeleton />}
           
           {error && <ErrorState error={error} />}
@@ -614,31 +629,31 @@ export function H2HModal({
               )}
             </>
           )}
+          
+          {/* CTA soft link */}
+          {hasPlayedMatches && (
+            <div className="pt-2">
+              <p className="text-[11px] text-muted-foreground text-center">
+                ¿Y si lo simulas ahora?{" "}
+                <button 
+                  onClick={() => onOpenChange(false)}
+                  className="text-primary hover:underline font-medium"
+                >
+                  Prueba este partido en la calculadora
+                </button>
+              </p>
+            </div>
+          )}
+          
+          {/* Footer with relative timestamp */}
+          {data?.cachedAt && (
+            <div className="flex items-center justify-center pb-2">
+              <p className="text-[10px] text-muted-foreground/60">
+                Actualizado {formatDistanceToNow(new Date(data.cachedAt), { addSuffix: true, locale: es })}
+              </p>
+            </div>
+          )}
         </div>
-        
-        {/* CTA soft link */}
-        {hasPlayedMatches && (
-          <div className="px-4 pb-2 pt-0">
-            <p className="text-[11px] text-muted-foreground text-center">
-              ¿Y si lo simulas ahora?{" "}
-              <button 
-                onClick={() => onOpenChange(false)}
-                className="text-primary hover:underline font-medium"
-              >
-                Prueba este partido en la calculadora
-              </button>
-            </p>
-          </div>
-        )}
-        
-        {/* Footer with relative timestamp */}
-        {data?.cachedAt && (
-          <div className="px-4 pb-3 pt-0 flex items-center justify-center">
-            <p className="text-[10px] text-muted-foreground/60">
-              Actualizado {formatDistanceToNow(new Date(data.cachedAt), { addSuffix: true, locale: es })}
-            </p>
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   );
