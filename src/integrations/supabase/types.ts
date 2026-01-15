@@ -116,6 +116,24 @@ export type Database = {
         }
         Relationships: []
       }
+      h2h_rate_limit: {
+        Row: {
+          ip_address: string
+          minute_bucket: string
+          request_count: number
+        }
+        Insert: {
+          ip_address: string
+          minute_bucket: string
+          request_count?: number
+        }
+        Update: {
+          ip_address?: string
+          minute_bucket?: string
+          request_count?: number
+        }
+        Relationships: []
+      }
       teams: {
         Row: {
           api_team_id: number

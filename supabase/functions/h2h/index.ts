@@ -5,6 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const RATE_LIMIT_MAX = 5; // 5 requests per minute per IP
+
 interface H2HFixture {
   fixture: {
     id: number;
@@ -40,6 +42,7 @@ interface H2HSummary {
     last5: Array<"home" | "away" | "draw">;
   };
   cachedAt: string;
+  providerError?: string;
 }
 
 function buildRequestKey(homeId: number, awayId: number): string {
@@ -47,17 +50,31 @@ function buildRequestKey(homeId: number, awayId: number): string {
   return `h2h:${pairKey}`;
 }
 
+function getMinuteBucket(): string {
+  const now = new Date();
+  now.setSeconds(0, 0);
+  return now.toISOString();
+}
+
+function getClientIP(req: Request): string {
+  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() 
+    || req.headers.get("x-real-ip") 
+    || "unknown";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
   try {
     const url = new URL(req.url);
     const homeId = parseInt(url.searchParams.get("homeId") || "0");
     const awayId = parseInt(url.searchParams.get("awayId") || "0");
-    // Ignorar cualquier parámetro de refresh - siempre usar cache si existe
-    // const forceRefresh = ... // DESHABILITADO para ahorrar requests
 
     if (!homeId || !awayId) {
       return new Response(
@@ -69,18 +86,13 @@ Deno.serve(async (req) => {
     const requestKey = buildRequestKey(homeId, awayId);
     const canonicalKey = homeId < awayId ? `${homeId}-${awayId}` : `${awayId}-${homeId}`;
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // 1. Buscar en api_request_log (cache permanente)
+    // ========== 1. CACHE-FIRST: Return immediately if cache exists ==========
     const { data: cachedLog } = await supabase
       .from("api_request_log")
-      .select("*")
+      .select("response_body, fetched_at")
       .eq("request_key", requestKey)
       .maybeSingle();
 
-    // SIEMPRE devolver cache si existe (no hay bypass de refresh)
     if (cachedLog?.response_body) {
       console.log(`✅ Cache hit for ${requestKey} (cached at ${cachedLog.fetched_at})`);
       return new Response(
@@ -89,38 +101,90 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Also check h2h_cache for backwards compatibility
+    const { data: h2hCached } = await supabase
+      .from("h2h_cache")
+      .select("payload, fetched_at")
+      .eq("canonical_key", canonicalKey)
+      .maybeSingle();
+
+    if (h2hCached?.payload) {
+      console.log(`✅ h2h_cache hit for ${canonicalKey}`);
+      return new Response(
+        JSON.stringify(h2hCached.payload),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ========== 2. RATE LIMITING ==========
+    const clientIP = getClientIP(req);
+    const minuteBucket = getMinuteBucket();
+
+    // Check and increment rate limit
+    const { data: rateData } = await supabase
+      .from("h2h_rate_limit")
+      .select("request_count")
+      .eq("ip_address", clientIP)
+      .eq("minute_bucket", minuteBucket)
+      .maybeSingle();
+
+    const currentCount = rateData?.request_count || 0;
+
+    if (currentCount >= RATE_LIMIT_MAX) {
+      console.warn(`⚠️ Rate limit exceeded for IP ${clientIP}`);
+      
+      // Return graceful response with providerError (no 429)
+      const emptyResponse: H2HSummary = {
+        fixtures: [],
+        stats: { total: 0, homeWins: 0, awayWins: 0, draws: 0, homeGoals: 0, awayGoals: 0, last5: [] },
+        cachedAt: new Date().toISOString(),
+        providerError: "Rate limit exceeded. Try again in a minute.",
+      };
+      
+      return new Response(
+        JSON.stringify(emptyResponse),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Upsert rate limit counter
+    await supabase
+      .from("h2h_rate_limit")
+      .upsert({
+        ip_address: clientIP,
+        minute_bucket: minuteBucket,
+        request_count: currentCount + 1,
+      }, { onConflict: "ip_address,minute_bucket" });
+
+    // ========== 3. NO CACHE EXISTS: Fetch from API-Football ==========
     console.log(`❌ Cache miss for ${requestKey}, fetching from API-Football`);
 
-    // 2. Llamar a API-Football
     const apiKey = Deno.env.get("API_FOOTBALL_KEY");
     if (!apiKey) {
-      // Si no hay API key pero hay cache previo, usar fallback
-      if (cachedLog?.response_body) {
-        console.log(`⚠️ No API key, using stale cache for ${requestKey}`);
-        return new Response(
-          JSON.stringify(cachedLog.response_body),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+      const emptyResponse: H2HSummary = {
+        fixtures: [],
+        stats: { total: 0, homeWins: 0, awayWins: 0, draws: 0, homeGoals: 0, awayGoals: 0, last5: [] },
+        cachedAt: new Date().toISOString(),
+        providerError: "API key not configured",
+      };
       return new Response(
-        JSON.stringify({ error: "API_FOOTBALL_KEY not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify(emptyResponse),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const apiUrl = `https://v3.football.api-sports.io/fixtures/headtohead?h2h=${homeId}-${awayId}`;
     
-    let apiResponse: Response | null = null;
     let apiData: any;
     let fetchError: string | null = null;
 
     try {
-      apiResponse = await fetch(apiUrl, {
+      const apiResponse = await fetch(apiUrl, {
         headers: { "x-apisports-key": apiKey },
       });
 
       if (!apiResponse.ok) {
-        fetchError = `HTTP ${apiResponse.status}: ${await apiResponse.text()}`;
+        fetchError = `HTTP ${apiResponse.status}`;
       } else {
         apiData = await apiResponse.json();
         
@@ -132,52 +196,47 @@ Deno.serve(async (req) => {
       fetchError = String(e);
     }
 
-    // 3. Si fetch falló, usar cache previo como fallback
+    // If fetch failed, return graceful empty response
     if (fetchError) {
       console.error(`API-Football error: ${fetchError}`);
       
-      // Registrar el error en api_request_log
-      await supabase.from("api_request_log").upsert({
-        request_key: requestKey,
-        provider: "api-football",
-        endpoint: "fixtures/headtohead",
-        request_params: { homeId, awayId },
-        response_status: apiResponse?.status || 0,
-        response_body: null,
-        fetched_at: new Date().toISOString(),
-        error: fetchError,
-      }, { onConflict: "request_key", ignoreDuplicates: false });
-
-      if (cachedLog?.response_body) {
-        console.log(`⚠️ API failed, using stale cache for ${requestKey}`);
-        return new Response(
-          JSON.stringify(cachedLog.response_body),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
+      const emptyResponse: H2HSummary = {
+        fixtures: [],
+        stats: { total: 0, homeWins: 0, awayWins: 0, draws: 0, homeGoals: 0, awayGoals: 0, last5: [] },
+        cachedAt: new Date().toISOString(),
+        providerError: "Failed to fetch data from provider",
+      };
+      
       return new Response(
-        JSON.stringify({ error: "Failed to fetch from API-Football", details: fetchError }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify(emptyResponse),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // 4. Procesar respuesta exitosa
+    // ========== 4. PROCESS RESPONSE ==========
     const allFixtures: H2HFixture[] = apiData.response || [];
     const fixtures = allFixtures.slice(0, 10);
 
-    // Guardar fixtures individuales
-    for (const fixture of fixtures) {
-      await supabase.from("h2h_fixtures").upsert({
-        api_fixture_id: fixture.fixture.id,
-        home_team_id: fixture.teams.home.id,
-        away_team_id: fixture.teams.away.id,
-        raw_json: fixture,
-        fixture_date: fixture.fixture.date,
-      }, { onConflict: "api_fixture_id" });
+    // BULK INSERT h2h_fixtures (single upsert operation)
+    if (fixtures.length > 0) {
+      const fixtureRows = fixtures.map((f) => ({
+        api_fixture_id: f.fixture.id,
+        home_team_id: f.teams.home.id,
+        away_team_id: f.teams.away.id,
+        raw_json: f,
+        fixture_date: f.fixture.date,
+      }));
+
+      const { error: bulkError } = await supabase
+        .from("h2h_fixtures")
+        .upsert(fixtureRows, { onConflict: "api_fixture_id", ignoreDuplicates: false });
+
+      if (bulkError) {
+        console.warn("Bulk insert error:", bulkError);
+      }
     }
 
-    // 5. Construir payload resumido
+    // Build processed payload
     const processedFixtures = fixtures.map((f) => {
       let winner: "home" | "away" | "draw" = "draw";
       if (f.goals.home > f.goals.away) winner = "home";
@@ -196,7 +255,7 @@ Deno.serve(async (req) => {
       };
     });
 
-    // Calcular stats
+    // Calculate stats
     let homeWins = 0, awayWins = 0, draws = 0, homeGoals = 0, awayGoals = 0;
 
     for (const f of processedFixtures) {
@@ -232,8 +291,8 @@ Deno.serve(async (req) => {
       cachedAt: now.toISOString(),
     };
 
-    // 6. Guardar respuesta COMPLETA en api_request_log (cache permanente)
-    const { error: logError } = await supabase.from("api_request_log").upsert({
+    // ========== 5. SAVE TO CACHE ==========
+    await supabase.from("api_request_log").upsert({
       request_key: requestKey,
       provider: "api-football",
       endpoint: "fixtures/headtohead",
@@ -244,11 +303,7 @@ Deno.serve(async (req) => {
       error: null,
     }, { onConflict: "request_key" });
 
-    if (logError) {
-      console.warn("Error saving to api_request_log:", logError);
-    }
-
-    // También actualizar h2h_cache para compatibilidad
+    // Also update h2h_cache for compatibility
     await supabase.from("h2h_cache").upsert({
       canonical_key: canonicalKey,
       home_team_id: Math.min(homeId, awayId),
@@ -265,9 +320,18 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     console.error("H2H function error:", error);
+    
+    // Graceful error - never crash
+    const emptyResponse: H2HSummary = {
+      fixtures: [],
+      stats: { total: 0, homeWins: 0, awayWins: 0, draws: 0, homeGoals: 0, awayGoals: 0, last5: [] },
+      cachedAt: new Date().toISOString(),
+      providerError: "Internal error",
+    };
+    
     return new Response(
-      JSON.stringify({ error: "Internal server error", details: String(error) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify(emptyResponse),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
