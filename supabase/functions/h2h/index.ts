@@ -96,7 +96,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const apiUrl = `https://v3.football.api-sports.io/fixtures/headtohead?h2h=${homeId}-${awayId}&last=10`;
+    // Free plan doesn't support &last param, we'll limit results in code
+    const apiUrl = `https://v3.football.api-sports.io/fixtures/headtohead?h2h=${homeId}-${awayId}`;
     
     const apiResponse = await fetch(apiUrl, {
       headers: {
@@ -122,7 +123,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    const fixtures: H2HFixture[] = apiData.response || [];
+    // Limit to last 10 fixtures (sorted by date desc from API)
+    const allFixtures: H2HFixture[] = apiData.response || [];
+    const fixtures = allFixtures.slice(0, 10);
 
     // 3. Guardar fixtures individuales
     for (const fixture of fixtures) {
