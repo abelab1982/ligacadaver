@@ -1,10 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, AlertCircle, Swords, ChevronDown, ChevronUp, Calendar, RefreshCw } from "lucide-react";
+import { Loader2, AlertCircle, Swords, ChevronDown, ChevronUp, Calendar } from "lucide-react";
 import { useH2H, H2HData, H2HFixture } from "@/hooks/useH2H";
 import { format, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
-import { Link } from "react-router-dom";
 import { TeamLogo } from "@/components/TeamLogo";
 
 interface H2HModalProps {
@@ -532,23 +531,16 @@ export function H2HModal({
   awayApiId 
 }: H2HModalProps) {
   const { data, loading, error, fetchH2H, reset } = useH2H();
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     if (open && homeApiId && awayApiId) {
-      fetchH2H(homeApiId, awayApiId, false);
+      fetchH2H(homeApiId, awayApiId);
     }
     
     if (!open) {
       reset();
     }
   }, [open, homeApiId, awayApiId, fetchH2H, reset]);
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await fetchH2H(homeApiId, awayApiId, true);
-    setIsRefreshing(false);
-  };
 
   // Process fixtures: separate played vs future, sort by date DESC
   const { playedFixtures, futureFixtures } = useMemo(() => {
@@ -639,21 +631,12 @@ export function H2HModal({
           </div>
         )}
         
-        {/* Footer with relative timestamp and refresh button */}
+        {/* Footer with relative timestamp */}
         {data?.cachedAt && (
-          <div className="px-4 pb-3 pt-0 flex items-center justify-center gap-2">
+          <div className="px-4 pb-3 pt-0 flex items-center justify-center">
             <p className="text-[10px] text-muted-foreground/60">
               Actualizado {formatDistanceToNow(new Date(data.cachedAt), { addSuffix: true, locale: es })}
             </p>
-            <button
-              onClick={handleRefresh}
-              disabled={isRefreshing || loading}
-              className="inline-flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Forzar actualización desde API"
-            >
-              <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-              Actualizar
-            </button>
           </div>
         )}
       </DialogContent>
