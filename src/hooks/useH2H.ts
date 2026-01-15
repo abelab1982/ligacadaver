@@ -33,7 +33,7 @@ interface UseH2HReturn {
   data: H2HData | null;
   loading: boolean;
   error: string | null;
-  fetchH2H: (homeApiId: number, awayApiId: number) => Promise<void>;
+  fetchH2H: (homeApiId: number, awayApiId: number, forceRefresh?: boolean) => Promise<void>;
   reset: () => void;
 }
 
@@ -42,14 +42,18 @@ export function useH2H(): UseH2HReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchH2H = useCallback(async (homeApiId: number, awayApiId: number) => {
+  const fetchH2H = useCallback(async (homeApiId: number, awayApiId: number, forceRefresh = false) => {
     setLoading(true);
     setError(null);
-    setData(null);
+    // Don't clear data on refresh to show stale data while loading
+    if (!forceRefresh) {
+      setData(null);
+    }
 
     try {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const url = `https://${projectId}.supabase.co/functions/v1/h2h?homeId=${homeApiId}&awayId=${awayApiId}`;
+      const refreshParam = forceRefresh ? "&refresh=true" : "";
+      const url = `https://${projectId}.supabase.co/functions/v1/h2h?homeId=${homeApiId}&awayId=${awayApiId}${refreshParam}`;
       
       const response = await fetch(url, {
         method: "GET",
