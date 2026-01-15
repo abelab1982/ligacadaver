@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_request_log: {
+        Row: {
+          created_at: string
+          endpoint: string
+          error: string | null
+          expires_at: string | null
+          fetched_at: string
+          id: string
+          provider: string
+          request_key: string
+          request_params: Json | null
+          response_body: Json | null
+          response_status: number | null
+        }
+        Insert: {
+          created_at?: string
+          endpoint: string
+          error?: string | null
+          expires_at?: string | null
+          fetched_at?: string
+          id?: string
+          provider?: string
+          request_key: string
+          request_params?: Json | null
+          response_body?: Json | null
+          response_status?: number | null
+        }
+        Update: {
+          created_at?: string
+          endpoint?: string
+          error?: string | null
+          expires_at?: string | null
+          fetched_at?: string
+          id?: string
+          provider?: string
+          request_key?: string
+          request_params?: Json | null
+          response_body?: Json | null
+          response_status?: number | null
+        }
+        Relationships: []
+      }
       h2h_cache: {
         Row: {
           away_team_id: number
