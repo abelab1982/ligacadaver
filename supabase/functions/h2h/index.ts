@@ -56,7 +56,8 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const homeId = parseInt(url.searchParams.get("homeId") || "0");
     const awayId = parseInt(url.searchParams.get("awayId") || "0");
-    const forceRefresh = url.searchParams.get("refresh") === "true";
+    // Ignorar cualquier parámetro de refresh - siempre usar cache si existe
+    // const forceRefresh = ... // DESHABILITADO para ahorrar requests
 
     if (!homeId || !awayId) {
       return new Response(
@@ -72,15 +73,15 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // 1. Buscar en api_request_log (nuevo cache permanente)
+    // 1. Buscar en api_request_log (cache permanente)
     const { data: cachedLog } = await supabase
       .from("api_request_log")
       .select("*")
       .eq("request_key", requestKey)
       .maybeSingle();
 
-    // Si existe cache y no es forceRefresh, devolver inmediatamente
-    if (cachedLog?.response_body && !forceRefresh) {
+    // SIEMPRE devolver cache si existe (no hay bypass de refresh)
+    if (cachedLog?.response_body) {
       console.log(`✅ Cache hit for ${requestKey} (cached at ${cachedLog.fetched_at})`);
       return new Response(
         JSON.stringify(cachedLog.response_body),
@@ -88,7 +89,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`${forceRefresh ? '🔄 Force refresh' : '❌ Cache miss'} for ${requestKey}, fetching from API-Football`);
+    console.log(`❌ Cache miss for ${requestKey}, fetching from API-Football`);
 
     // 2. Llamar a API-Football
     const apiKey = Deno.env.get("API_FOOTBALL_KEY");
