@@ -111,7 +111,7 @@ export const initialTeams: Team[] = [
     primaryColor: "#87CEEB",
     altitude: 3053,
     status: "Altura",
-    apiTeamId: 10492,
+    apiTeamId: 3304,
     played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0
   },
   {
