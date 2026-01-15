@@ -27,7 +27,7 @@ export const initialTeams: Team[] = [
     primaryColor: "#FFFDD0",
     altitude: 250,
     status: "Campeón 2025",
-    apiTeamId: 2648,
+    apiTeamId: 2540,
     played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0
   },
   {
@@ -39,7 +39,7 @@ export const initialTeams: Team[] = [
     primaryColor: "#192745",
     altitude: 150,
     status: "",
-    apiTeamId: 2650,
+    apiTeamId: 2553,
     played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0
   },
   {
@@ -51,7 +51,7 @@ export const initialTeams: Team[] = [
     primaryColor: "#5CBFEB",
     altitude: 150,
     status: "",
-    apiTeamId: 2653,
+    apiTeamId: 2546,
     played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0
   },
   {
@@ -63,7 +63,7 @@ export const initialTeams: Team[] = [
     primaryColor: "#D71920",
     altitude: 2335,
     status: "Altura",
-    apiTeamId: 2654,
+    apiTeamId: 2554,
     played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0
   },
   {
@@ -75,7 +75,7 @@ export const initialTeams: Team[] = [
     primaryColor: "#D4AF37",
     altitude: 3399,
     status: "Altura Extrema",
-    apiTeamId: 7818,
+    apiTeamId: 10013,
     played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0
   },
   {
@@ -87,7 +87,7 @@ export const initialTeams: Team[] = [
     primaryColor: "#CC0000",
     altitude: 3399,
     status: "Altura Extrema",
-    apiTeamId: 2655,
+    apiTeamId: 2562,
     played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0
   },
   {
@@ -99,7 +99,7 @@ export const initialTeams: Team[] = [
     primaryColor: "#87CEEB",
     altitude: 3399,
     status: "Altura Extrema",
-    apiTeamId: 2656,
+    apiTeamId: 20960,
     played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0
   },
   {
@@ -111,7 +111,7 @@ export const initialTeams: Team[] = [
     primaryColor: "#87CEEB",
     altitude: 3053,
     status: "Altura",
-    apiTeamId: 3304,
+    apiTeamId: 10492,
     played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0
   },
   {
@@ -123,7 +123,7 @@ export const initialTeams: Team[] = [
     primaryColor: "#CC0000",
     altitude: 3259,
     status: "Altura Extrema",
-    apiTeamId: 2657,
+    apiTeamId: 2555,
     played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0
   },
   {
@@ -135,7 +135,7 @@ export const initialTeams: Team[] = [
     primaryColor: "#FFFDD0",
     altitude: 2750,
     status: "Altura",
-    apiTeamId: 2660,
+    apiTeamId: 2539,
     played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0
   },
   {
@@ -147,7 +147,7 @@ export const initialTeams: Team[] = [
     primaryColor: "#663399",
     altitude: 2637,
     status: "Altura",
-    apiTeamId: 3314,
+    apiTeamId: 2558,
     played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0
   },
   {
@@ -159,7 +159,7 @@ export const initialTeams: Team[] = [
     primaryColor: "#FFA500",
     altitude: 2750,
     status: "Ascendido",
-    apiTeamId: 2661,
+    apiTeamId: 22543,
     played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0
   },
   {
@@ -171,7 +171,7 @@ export const initialTeams: Team[] = [
     primaryColor: "#800000",
     altitude: 2926,
     status: "Altura",
-    apiTeamId: 13068,
+    apiTeamId: 2572,
     played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0
   },
   {
@@ -183,7 +183,7 @@ export const initialTeams: Team[] = [
     primaryColor: "#FFFF00",
     altitude: 60,
     status: "Calor Extremo",
-    apiTeamId: 11079,
+    apiTeamId: 2564,
     played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0
   },
   {
@@ -195,7 +195,7 @@ export const initialTeams: Team[] = [
     primaryColor: "#FFFFFF",
     altitude: 60,
     status: "Calor Extremo",
-    apiTeamId: 13065,
+    apiTeamId: 2560,
     played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0
   },
   {
@@ -207,7 +207,7 @@ export const initialTeams: Team[] = [
     primaryColor: "#FF69B4",
     altitude: 5,
     status: "",
-    apiTeamId: 2659,
+    apiTeamId: 2544,
     played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0
   },
   {
@@ -219,7 +219,7 @@ export const initialTeams: Team[] = [
     primaryColor: "#FFFF00",
     altitude: 200,
     status: "",
-    apiTeamId: 7819,
+    apiTeamId: 22479,
     played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0
   },
   {
@@ -231,7 +231,7 @@ export const initialTeams: Team[] = [
     primaryColor: "#008000",
     altitude: 1410,
     status: "Ascendido",
-    apiTeamId: 4624,
+    apiTeamId: 22489,
     played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0
   }
 ];
