@@ -7,9 +7,11 @@ export interface H2HFixture {
   awayTeam: string;
   homeId: number;
   awayId: number;
-  homeGoals: number;
-  awayGoals: number;
-  winner: "home" | "away" | "draw";
+  homeGoals: number | null;
+  awayGoals: number | null;
+  winner: "home" | "away" | "draw" | null;
+  season?: number;
+  round?: string;
 }
 
 export interface H2HStats {
@@ -27,6 +29,7 @@ export interface H2HData {
   stats: H2HStats;
   cachedAt: string;
   providerError?: string;
+  dataSource?: string;
 }
 
 interface UseH2HReturn {
