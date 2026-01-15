@@ -1,1 +1,4 @@
 project_id = "wnlmeiqmjujjjesszgcg"
+
+[functions.h2h]
+verify_jwt = false
