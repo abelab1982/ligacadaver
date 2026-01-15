@@ -48,16 +48,6 @@ export function useH2H(): UseH2HReturn {
     setData(null);
 
     try {
-      const { data: responseData, error: fnError } = await supabase.functions.invoke("h2h", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: null,
-      });
-
-      // supabase.functions.invoke doesn't support query params directly
-      // We need to call the function URL directly
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const url = `https://${projectId}.supabase.co/functions/v1/h2h?homeId=${homeApiId}&awayId=${awayApiId}`;
       
