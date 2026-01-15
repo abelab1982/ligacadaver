@@ -14,7 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      h2h_cache: {
+        Row: {
+          away_team_id: number
+          canonical_key: string
+          created_at: string
+          fetched_at: string
+          home_team_id: number
+          id: string
+          payload: Json
+        }
+        Insert: {
+          away_team_id: number
+          canonical_key: string
+          created_at?: string
+          fetched_at?: string
+          home_team_id: number
+          id?: string
+          payload: Json
+        }
+        Update: {
+          away_team_id?: number
+          canonical_key?: string
+          created_at?: string
+          fetched_at?: string
+          home_team_id?: number
+          id?: string
+          payload?: Json
+        }
+        Relationships: []
+      }
+      h2h_fixtures: {
+        Row: {
+          api_fixture_id: number
+          away_team_id: number
+          created_at: string
+          fixture_date: string | null
+          home_team_id: number
+          id: string
+          raw_json: Json
+        }
+        Insert: {
+          api_fixture_id: number
+          away_team_id: number
+          created_at?: string
+          fixture_date?: string | null
+          home_team_id: number
+          id?: string
+          raw_json: Json
+        }
+        Update: {
+          api_fixture_id?: number
+          away_team_id?: number
+          created_at?: string
+          fixture_date?: string | null
+          home_team_id?: number
+          id?: string
+          raw_json?: Json
+        }
+        Relationships: []
+      }
+      teams: {
+        Row: {
+          api_team_id: number
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          api_team_id: number
+          created_at?: string
+          id: string
+          name: string
+        }
+        Update: {
+          api_team_id?: number
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

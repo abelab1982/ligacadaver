@@ -1,11 +1,12 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Minus, Plus, Wand2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Minus, Plus, Wand2, Swords } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Match, TeamStats } from "@/hooks/useLeagueEngine";
 import { useState, useEffect, useRef } from "react";
 import { TeamLogo } from "@/components/TeamLogo";
 import { Footer } from "./Footer";
+import { H2HModal } from "./H2HModal";
 import {
   Tooltip,
   TooltipContent,
@@ -147,9 +148,10 @@ interface MatchCardProps {
   awayTeam: TeamStats;
   onUpdatePrediction: (matchId: string, home: number | null, away: number | null) => void;
   onConfirmResult: (matchId: string, home: number, away: number) => void;
+  onH2HClick: (homeTeam: TeamStats, awayTeam: TeamStats) => void;
 }
 
-const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmResult }: MatchCardProps) => {
+const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmResult, onH2HClick }: MatchCardProps) => {
   const [localHome, setLocalHome] = useState<number | null>(
     match.homePrediction !== null && match.homePrediction !== undefined 
       ? match.homePrediction 
@@ -234,7 +236,24 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
             </span>
           </div>
           
-          <span className="text-muted-foreground font-bold">VS</span>
+          {/* H2H Button - Mobile */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-8 h-8 text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0"
+                  onClick={() => onH2HClick(homeTeam, awayTeam)}
+                >
+                  <Swords className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Head to Head</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           
           {/* Away Team */}
           <div className="flex-1 flex items-center gap-2 justify-end">
@@ -324,6 +343,25 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
             {awayTeam.name}
           </span>
         </div>
+
+        {/* H2H Button - Desktop */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-6 h-6 text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0"
+                onClick={() => onH2HClick(homeTeam, awayTeam)}
+              >
+                <Swords className="w-3.5 h-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Head to Head</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </Card>
   );
@@ -338,6 +376,15 @@ export const FixtureView = ({
   onConfirmResult,
   getTeamById,
 }: FixtureViewProps) => {
+  // H2H Modal state
+  const [h2hOpen, setH2hOpen] = useState(false);
+  const [h2hTeams, setH2hTeams] = useState<{ home: TeamStats; away: TeamStats } | null>(null);
+
+  const handleH2HClick = (homeTeam: TeamStats, awayTeam: TeamStats) => {
+    setH2hTeams({ home: homeTeam, away: awayTeam });
+    setH2hOpen(true);
+  };
+
   // Count matches with scores (official or predictions)
   const playedCount = matches.filter(m => 
     m.status === "played" || (m.homePrediction !== null && m.awayPrediction !== null)
@@ -437,6 +484,7 @@ export const FixtureView = ({
                   awayTeam={awayTeam}
                   onUpdatePrediction={onUpdatePrediction}
                   onConfirmResult={onConfirmResult}
+                  onH2HClick={handleH2HClick}
                 />
               );
             })}
@@ -446,6 +494,18 @@ export const FixtureView = ({
         {/* Footer minimal */}
         <Footer minimal />
       </div>
+
+      {/* H2H Modal */}
+      {h2hTeams && (
+        <H2HModal
+          open={h2hOpen}
+          onOpenChange={setH2hOpen}
+          homeTeamName={h2hTeams.home.name}
+          awayTeamName={h2hTeams.away.name}
+          homeApiId={h2hTeams.home.apiTeamId}
+          awayApiId={h2hTeams.away.apiTeamId}
+        />
+      )}
     </div>
   );
 };

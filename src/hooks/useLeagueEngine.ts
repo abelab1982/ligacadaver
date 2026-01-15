@@ -32,6 +32,7 @@ export interface TeamStats extends Team {
   predictedPoints: number;
   predictedGoalDifference: number;
   fairPlay: number;
+  apiTeamId: number;
 }
 
 const calculateTeamStats = (team: Team, rounds: Round[]) => {
