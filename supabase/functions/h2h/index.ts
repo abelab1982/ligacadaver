@@ -302,7 +302,7 @@ Deno.serve(async (req) => {
           fixtures: [],
           stats: { total: 0, homeWins: 0, awayWins: 0, draws: 0, homeGoals: 0, awayGoals: 0, last5: [] },
           cachedAt: new Date().toISOString(),
-          providerError: "API key not configured",
+          providerError: "Service temporarily unavailable",
           dataSource: "error",
         } satisfies H2HSummary),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -360,7 +360,7 @@ Deno.serve(async (req) => {
         }
       } catch (err) {
         console.error(`Error fetching season ${season}:`, err);
-        providerError = `Error fetching some seasons: ${err instanceof Error ? err.message : "Unknown"}`;
+        providerError = "Some historical data may be incomplete";
       }
     }
 
@@ -437,13 +437,13 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error("H2H function error:", error);
     
-    // Graceful error - never crash
+    // Graceful error - never crash, use generic message for clients
     return new Response(
       JSON.stringify({
         fixtures: [],
         stats: { total: 0, homeWins: 0, awayWins: 0, draws: 0, homeGoals: 0, awayGoals: 0, last5: [] },
         cachedAt: new Date().toISOString(),
-        providerError: error instanceof Error ? error.message : "Internal error",
+        providerError: "Unable to fetch match data at this time",
         dataSource: "error",
       } satisfies H2HSummary),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
