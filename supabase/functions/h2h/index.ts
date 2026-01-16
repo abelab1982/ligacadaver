@@ -6,31 +6,37 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const ALLOWED_ORIGINS = [
   "https://calculadoraliga1.lovable.app",
   "https://preview--calculadoraliga1.lovable.app",
+  "https://liga1calc.pe",
+  "https://www.liga1calc.pe",
+  "https://lovable.app",
+  "https://www.lovable.app",
   "http://localhost:5173",
   "http://localhost:8080",
 ];
 
 function isOriginAllowed(origin: string): boolean {
-  if (!origin) return false;
-  
-  // Check exact match first
-  if (ALLOWED_ORIGINS.includes(origin)) {
-    return true;
-  }
-  
-  // Allow any subdomain of lovable.app (for preview URLs)
-  if (origin.endsWith(".lovable.app") && origin.startsWith("https://")) {
-    return true;
-  }
-  
-  return false;
+  // Explicit allowlist + controlled suffix checks (NO "*.lovable.app" literal)
+  return (
+    origin === "https://liga1calc.pe" ||
+    origin === "https://www.liga1calc.pe" ||
+    origin === "https://lovable.app" ||
+    origin === "https://www.lovable.app" ||
+    origin === "https://calculadoraliga1.lovable.app" ||
+    origin === "https://preview--calculadoraliga1.lovable.app" ||
+    origin === "http://localhost:5173" ||
+    origin === "http://localhost:8080" ||
+    origin.endsWith(".lovable.app") ||
+    // Needed for Lovable editor/preview origins (e.g. *.lovableproject.com)
+    origin.endsWith(".lovableproject.com")
+  );
 }
 
-function getCorsHeaders(origin: string, isAllowed: boolean): Record<string, string> {
+function getCorsHeaders(origin: string): Record<string, string> {
   return {
-    "Access-Control-Allow-Origin": isAllowed ? origin : ALLOWED_ORIGINS[0],
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    // Always reflect Origin (browser will still be blocked by our 403 when not allowed)
+    "Access-Control-Allow-Origin": origin || "null",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "authorization, apikey, x-client-info, content-type",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin",
   };
@@ -368,20 +374,26 @@ async function fetchFromProvider(
 }
 
 Deno.serve(async (req) => {
-  // CORS: Extract and validate origin
-  const origin = req.headers.get("origin") || "";
+  // CORS: Extract + validate origin
+  const origin = req.headers.get("origin") ?? "";
   const isAllowed = isOriginAllowed(origin);
-  const corsHeaders = getCorsHeaders(origin, isAllowed);
+  const corsHeaders = getCorsHeaders(origin);
 
-  // Temporary debug logging
-  console.log("CORS Debug:", { origin, method: req.method, isAllowed });
+  // Temporary debug logging (remove once confirmed)
+  console.log("origin", origin, "method", req.method, "allowed", isAllowed);
 
-  // Handle CORS preflight - MUST respond 204 immediately
+  // Preflight: respond immediately
   if (req.method === "OPTIONS") {
-    return new Response(null, { 
-      status: 204,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
+  // Block disallowed origins (but still return CORS headers so browser can read JSON)
+  if (!isAllowed) {
+    console.log("CORS blocked: origin not allowed");
+    return new Response(
+      JSON.stringify({ error: "CORS origin not allowed" }),
+      { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 
   // Only allow GET
