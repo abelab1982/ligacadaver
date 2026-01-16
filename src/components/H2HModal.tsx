@@ -80,7 +80,7 @@ function TeamMiniCard({ teamId, teamName, side }: { teamId: string; teamName: st
   const abbr = getAbbr(teamName);
   
   return (
-    <div className={`flex items-center gap-2 ${side === "right" ? "flex-row-reverse" : ""}`}>
+    <div className={`flex items-center gap-2 min-w-0 ${side === "right" ? "flex-row-reverse" : ""}`}>
       <TeamLogo 
         teamId={teamId} 
         teamName={teamName} 
@@ -88,8 +88,8 @@ function TeamMiniCard({ teamId, teamName, side }: { teamId: string; teamName: st
         primaryColor="#374151"
         size="sm" 
       />
-      <div className={`${side === "right" ? "text-right" : "text-left"}`}>
-        <div className="text-xs font-semibold text-foreground leading-tight">{abbr}</div>
+      <div className={`min-w-0 ${side === "right" ? "text-right" : "text-left"}`}>
+        <div className="text-xs font-semibold text-foreground leading-tight truncate">{abbr}</div>
         <div className="text-[10px] text-muted-foreground leading-tight truncate max-w-[80px]">{teamName}</div>
       </div>
     </div>
@@ -456,10 +456,10 @@ function HistorySection({ playedFixtures, homeApiId }: { playedFixtures: H2HFixt
   if (total === 0) return null;
   
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 min-w-0">
       <div className="text-xs font-medium text-muted-foreground">Historial ({total} partidos)</div>
       
-      <div className={`${expanded ? "max-h-48 overflow-y-auto" : ""}`}>
+      <div className="min-w-0">
         {displayedFixtures.map((fixture, index) => (
           <FixtureRow 
             key={fixture.id} 
@@ -574,12 +574,12 @@ export function H2HModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="max-w-[340px] sm:max-w-md p-0 gap-0"
+        className="max-w-[340px] sm:max-w-md max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0"
         aria-labelledby="h2h-dialog-title"
         aria-describedby="h2h-dialog-description"
       >
         {/* Sticky Header - always visible */}
-        <DialogHeader className="sticky top-0 z-40 px-4 pt-4 pb-3 border-b border-border/50 bg-background/95 backdrop-blur-sm shrink-0">
+        <DialogHeader className="px-4 pt-4 pb-3 border-b border-border/50 bg-background shrink-0">
           <DialogTitle 
             id="h2h-dialog-title"
             className="flex items-center justify-center gap-2 text-sm font-semibold pr-8"
@@ -589,9 +589,9 @@ export function H2HModal({
           </DialogTitle>
           
           {/* Team cards */}
-          <div className="flex items-center justify-between mt-3">
+          <div className="flex items-center justify-between mt-3 min-w-0">
             <TeamMiniCard teamId={homeTeamId} teamName={homeTeamName} side="left" />
-            <span className="text-xs font-bold text-muted-foreground">VS</span>
+            <span className="text-xs font-bold text-muted-foreground shrink-0">VS</span>
             <TeamMiniCard teamId={awayTeamId} teamName={awayTeamName} side="right" />
           </div>
           
@@ -601,11 +601,8 @@ export function H2HModal({
           </span>
         </DialogHeader>
 
-        {/* Scrollable Content */}
-        <div 
-          className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-4"
-          style={{ WebkitOverflowScrolling: 'touch' }}
-        >
+        {/* Scrollable Body - only scrollable container */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain px-4 py-4 space-y-4 min-w-0">
           {loading && <LoadingSkeleton />}
           
           {error && <ErrorState error={error} onRetry={retry} rateLimited={rateLimited} />}
