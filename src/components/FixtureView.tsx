@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Minus, Plus, Wand2, Swords } from "lucide-react";
+import { ChevronLeft, ChevronRight, Minus, Plus, Wand2, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Match, TeamStats } from "@/hooks/useLeagueEngine";
@@ -236,21 +236,22 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
             </span>
           </div>
           
-          {/* H2H Button - Mobile */}
+          {/* H2H Stats Button - Mobile */}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="w-8 h-8 text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0"
+                  size="sm"
+                  className="h-8 px-2.5 gap-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0 cursor-pointer"
                   onClick={() => onH2HClick(homeTeam, awayTeam)}
                 >
-                  <Swords className="w-4 h-4" />
+                  <BarChart3 className="w-4 h-4" />
+                  <span className="text-xs font-medium">Stats</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Head to Head</p>
+                <p>Ver historial, forma y estadísticas del partido</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -344,21 +345,22 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
           </span>
         </div>
 
-        {/* H2H Button - Desktop */}
+        {/* H2H Stats Button - Desktop */}
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
-                size="icon"
-                className="w-6 h-6 text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0"
+                size="sm"
+                className="h-6 px-2 gap-1 text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0 cursor-pointer"
                 onClick={() => onH2HClick(homeTeam, awayTeam)}
               >
-                <Swords className="w-3.5 h-3.5" />
+                <BarChart3 className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-medium">Stats</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Head to Head</p>
+              <p>Ver historial, forma y estadísticas del partido</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
