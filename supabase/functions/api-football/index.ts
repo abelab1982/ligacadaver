@@ -6,6 +6,55 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// ============ METRICS ============
+interface ProxyMetrics {
+  cacheHitsMemory: number;
+  cacheHitsDb: number;
+  cacheHitsInFlight: number;
+  apiCalls: number;
+  apiRetries: number;
+  apiErrors: number;
+  timeouts: number;
+  startTime: number;
+}
+
+const metrics: ProxyMetrics = {
+  cacheHitsMemory: 0,
+  cacheHitsDb: 0,
+  cacheHitsInFlight: 0,
+  apiCalls: 0,
+  apiRetries: 0,
+  apiErrors: 0,
+  timeouts: 0,
+  startTime: Date.now(),
+};
+
+function getMetricsSummary(): Record<string, unknown> {
+  const uptimeMs = Date.now() - metrics.startTime;
+  const totalRequests = metrics.cacheHitsMemory + metrics.cacheHitsDb + metrics.cacheHitsInFlight + metrics.apiCalls;
+  const cacheHitRate = totalRequests > 0 
+    ? ((metrics.cacheHitsMemory + metrics.cacheHitsDb + metrics.cacheHitsInFlight) / totalRequests * 100).toFixed(2) 
+    : '0.00';
+  
+  return {
+    uptime_seconds: Math.floor(uptimeMs / 1000),
+    total_requests: totalRequests,
+    cache_hits_memory: metrics.cacheHitsMemory,
+    cache_hits_db: metrics.cacheHitsDb,
+    cache_hits_inflight: metrics.cacheHitsInFlight,
+    api_calls: metrics.apiCalls,
+    api_retries: metrics.apiRetries,
+    api_errors: metrics.apiErrors,
+    timeouts: metrics.timeouts,
+    cache_hit_rate_percent: cacheHitRate,
+  };
+}
+
+// ============ FETCH CONFIG ============
+const FETCH_TIMEOUT_MS = 10000; // 10 seconds timeout
+const MAX_RETRIES = 2;
+const BASE_BACKOFF_MS = 1000; // 1 second base for exponential backoff
+
 // ============ CACHE CONFIG ============
 const CACHE_TTL_MS: Record<string, number> = {
   '/standings': 6 * 60 * 60 * 1000,       // 6 hours
@@ -391,16 +440,30 @@ serve(async (req) => {
     : '';
   const queryString = url.search;
 
+  // ============ METRICS ENDPOINT ============
+  if (apiPath === '/_stats' || apiPath === '/_metrics') {
+    return new Response(
+      JSON.stringify({
+        success: true,
+        metrics: getMetricsSummary(),
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
   // ============ RATE LIMITING CHECKS ============
   
   if (!consumeToken(clientIP, ipBuckets, BUCKET_CONFIG.global)) {
-    console.warn(`Burst limit exceeded for IP: ${clientIP}`);
+    console.warn(`[RATE LIMIT] Burst limit exceeded - IP: ${clientIP.substring(0, 8)}***`);
     return errorResponse(429, 'Too many requests', 'Burst limit exceeded. Please slow down.', 1);
   }
 
   const globalCheck = checkRateLimit(clientIP, ipRateLimits, RATE_LIMITS.global);
   if (!globalCheck.allowed) {
-    console.warn(`Global rate limit exceeded for IP: ${clientIP}`);
+    console.warn(`[RATE LIMIT] Global limit exceeded - IP: ${clientIP.substring(0, 8)}***`);
     return errorResponse(429, 'Rate limit exceeded', `Too many requests. Try again in ${globalCheck.retryAfter} seconds.`, globalCheck.retryAfter);
   }
 
@@ -408,13 +471,13 @@ serve(async (req) => {
     const sensitiveKey = `${clientIP}:${apiPath.split('?')[0]}`;
     
     if (!consumeToken(sensitiveKey, routeBuckets, BUCKET_CONFIG.sensitive)) {
-      console.warn(`Sensitive burst limit exceeded for: ${sensitiveKey}`);
+      console.warn(`[RATE LIMIT] Sensitive burst exceeded - endpoint: ${apiPath.split('?')[0]}`);
       return errorResponse(429, 'Too many requests', 'Burst limit on sensitive endpoint exceeded.', 2);
     }
     
     const sensitiveCheck = checkRateLimit(sensitiveKey, sensitiveRateLimits, RATE_LIMITS.sensitive);
     if (!sensitiveCheck.allowed) {
-      console.warn(`Sensitive rate limit exceeded for: ${sensitiveKey}`);
+      console.warn(`[RATE LIMIT] Sensitive limit exceeded - endpoint: ${apiPath.split('?')[0]}`);
       return errorResponse(429, 'Rate limit exceeded', `Too many requests to this endpoint. Try again in ${sensitiveCheck.retryAfter} seconds.`, sensitiveCheck.retryAfter);
     }
   }
@@ -426,7 +489,7 @@ serve(async (req) => {
   }
 
   if (!isAllowedEndpoint(apiPath)) {
-    console.warn(`Blocked request to unauthorized endpoint: ${apiPath}`);
+    console.warn(`[BLOCKED] Unauthorized endpoint: ${apiPath}`);
     return errorResponse(403, 'Endpoint not allowed', `The endpoint "${apiPath}" is not in the allowed list`);
   }
 
@@ -439,7 +502,8 @@ serve(async (req) => {
   // 1. Check memory cache first
   const memoryCached = getFromMemoryCache(cacheKey);
   if (memoryCached) {
-    console.info(`[CACHE HIT - Memory] ${cacheKey}`);
+    metrics.cacheHitsMemory++;
+    console.info(`[CACHE HIT - Memory] ${endpoint}`);
     return successResponse(memoryCached, true);
   }
 
@@ -448,7 +512,7 @@ serve(async (req) => {
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   
   if (!supabaseUrl || !supabaseServiceKey) {
-    console.error('Supabase credentials not configured');
+    console.error('[CONFIG ERROR] Supabase credentials not configured');
     return errorResponse(500, 'Server configuration error', 'Database not configured');
   }
 
@@ -456,7 +520,8 @@ serve(async (req) => {
   
   const dbCached = await getFromDbCache(supabase, cacheKey);
   if (dbCached) {
-    console.info(`[CACHE HIT - DB] ${cacheKey}`);
+    metrics.cacheHitsDb++;
+    console.info(`[CACHE HIT - DB] ${endpoint}`);
     // Populate memory cache for faster subsequent hits
     setMemoryCache(cacheKey, dbCached.data, ttlMs);
     return successResponse(dbCached.data, true);
@@ -466,7 +531,8 @@ serve(async (req) => {
   
   const existingInFlight = inFlightRequests.get(cacheKey);
   if (existingInFlight) {
-    console.info(`[IN-FLIGHT] Waiting for existing request: ${cacheKey}`);
+    metrics.cacheHitsInFlight++;
+    console.info(`[IN-FLIGHT] Waiting for existing request: ${endpoint}`);
     const result = await existingInFlight.promise;
     if (result.success) {
       return successResponse(result.data, true);
@@ -476,95 +542,178 @@ serve(async (req) => {
     }
   }
 
-  // ============ FETCH FROM API-FOOTBALL (WITH DEDUPLICATION) ============
+  // ============ FETCH FROM API-FOOTBALL (WITH RETRY & TIMEOUT) ============
 
   // Create a promise that other concurrent requests can wait on
   const fetchPromise = (async (): Promise<{ success: true; data: unknown } | { success: false; error: Response }> => {
-    try {
-      const apiKey = Deno.env.get('API_FOOTBALL_KEY');
-      if (!apiKey) {
-        console.error('API_FOOTBALL_KEY not configured');
-        return { success: false, error: errorResponse(500, 'Server configuration error', 'API key not configured') };
-      }
-
-      const apiFootballUrl = `https://v3.football.api-sports.io${apiPath}${queryString}`;
-      
-      console.info(`[CACHE MISS] Fetching from API: ${apiPath}${queryString}`);
-
-      const response = await fetch(apiFootballUrl, {
-        method: 'GET',
-        headers: {
-          'x-apisports-key': apiKey,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.status === 401) {
-        return { success: false, error: errorResponse(401, 'Authentication failed', 'Invalid API key') };
-      }
-
-      if (response.status === 429) {
-        const retryAfter = response.headers.get('Retry-After');
-        const retrySeconds = retryAfter ? parseInt(retryAfter) : 60;
-        return { success: false, error: errorResponse(429, 'Rate limit exceeded', retryAfter ? `Retry after ${retryAfter} seconds` : 'Too many requests', retrySeconds) };
-      }
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`API-Football error: ${response.status} - ${errorText}`);
-        return { success: false, error: errorResponse(response.status, 'API request failed', `Status: ${response.status}`) };
-      }
-
-      const data = await response.json();
-
-      // Check for API-level errors
-      if (data.errors && Object.keys(data.errors).length > 0) {
-        console.warn('API-Football returned errors:', JSON.stringify(data.errors));
-        return { 
-          success: false, 
-          error: new Response(
-            JSON.stringify({
-              success: false,
-              error: {
-                code: 400,
-                message: 'API returned errors',
-                details: data.errors,
-              },
-              response: data.response || [],
-            }),
-            {
-              status: 200,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            }
-          )
-        };
-      }
-
-      // ============ STORE IN CACHE ============
-
-      // Parse query params for logging
-      const queryParams: Record<string, string> = {};
-      url.searchParams.forEach((value, key) => {
-        queryParams[key] = value;
-      });
-
-      // Store in memory cache
-      setMemoryCache(cacheKey, data, ttlMs);
-
-      // Store in database cache (async, don't block response)
-      setDbCache(supabase, cacheKey, endpoint, queryParams, data, 200, ttlMs).catch(err => {
-        console.error('Failed to write DB cache:', err);
-      });
-
-      console.info(`[CACHED] ${cacheKey} with TTL ${ttlMs / 1000}s`);
-
-      return { success: true, data };
-
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Proxy error:', errorMessage);
-      return { success: false, error: errorResponse(500, 'Internal server error', 'An unexpected error occurred') };
+    const apiKey = Deno.env.get('API_FOOTBALL_KEY');
+    if (!apiKey) {
+      console.error('[CONFIG ERROR] API_FOOTBALL_KEY not configured');
+      return { success: false, error: errorResponse(500, 'Server configuration error', 'API key not configured') };
     }
+
+    const apiFootballUrl = `https://v3.football.api-sports.io${apiPath}${queryString}`;
+    
+    // Retry loop with exponential backoff
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        if (attempt > 0) {
+          metrics.apiRetries++;
+          console.info(`[RETRY] Attempt ${attempt + 1}/${MAX_RETRIES + 1} for ${endpoint}`);
+        } else {
+          console.info(`[API CALL] ${endpoint}`);
+        }
+
+        // Create AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+        try {
+          metrics.apiCalls++;
+          const response = await fetch(apiFootballUrl, {
+            method: 'GET',
+            headers: {
+              'x-apisports-key': apiKey,
+              'Content-Type': 'application/json',
+            },
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          // Handle 401 - no retry
+          if (response.status === 401) {
+            metrics.apiErrors++;
+            console.error('[API ERROR] Authentication failed');
+            return { success: false, error: errorResponse(401, 'Authentication failed', 'Invalid API key') };
+          }
+
+          // Handle 429 - retry with backoff
+          if (response.status === 429) {
+            const retryAfterHeader = response.headers.get('Retry-After');
+            const retryAfterSeconds = retryAfterHeader ? parseInt(retryAfterHeader) : null;
+            
+            if (attempt < MAX_RETRIES) {
+              // Calculate backoff: use Retry-After if provided, otherwise exponential backoff
+              const backoffMs = retryAfterSeconds 
+                ? retryAfterSeconds * 1000 
+                : BASE_BACKOFF_MS * Math.pow(2, attempt);
+              
+              console.warn(`[429] Rate limited by API. Waiting ${backoffMs}ms before retry...`);
+              await new Promise(resolve => setTimeout(resolve, backoffMs));
+              continue; // Retry
+            }
+            
+            // Max retries exceeded
+            metrics.apiErrors++;
+            console.error(`[API ERROR] Rate limit exceeded after ${MAX_RETRIES + 1} attempts`);
+            return { 
+              success: false, 
+              error: errorResponse(429, 'Rate limit exceeded', 
+                retryAfterSeconds ? `Retry after ${retryAfterSeconds} seconds` : 'Too many requests', 
+                retryAfterSeconds || 60) 
+            };
+          }
+
+          // Handle other errors
+          if (!response.ok) {
+            if (attempt < MAX_RETRIES && response.status >= 500) {
+              // Server errors - retry
+              const backoffMs = BASE_BACKOFF_MS * Math.pow(2, attempt);
+              console.warn(`[${response.status}] Server error. Retrying in ${backoffMs}ms...`);
+              await new Promise(resolve => setTimeout(resolve, backoffMs));
+              continue;
+            }
+            
+            metrics.apiErrors++;
+            const errorText = await response.text();
+            console.error(`[API ERROR] Status ${response.status}`);
+            return { success: false, error: errorResponse(response.status, 'API request failed', `Status: ${response.status}`) };
+          }
+
+          const data = await response.json();
+
+          // Check for API-level errors
+          if (data.errors && Object.keys(data.errors).length > 0) {
+            metrics.apiErrors++;
+            console.warn(`[API WARN] API returned errors for ${endpoint}`);
+            return { 
+              success: false, 
+              error: new Response(
+                JSON.stringify({
+                  success: false,
+                  error: {
+                    code: 400,
+                    message: 'API returned errors',
+                    details: data.errors,
+                  },
+                  response: data.response || [],
+                }),
+                {
+                  status: 200,
+                  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                }
+              )
+            };
+          }
+
+          // ============ STORE IN CACHE ============
+
+          // Parse query params for logging (sanitized)
+          const queryParams: Record<string, string> = {};
+          url.searchParams.forEach((value, key) => {
+            queryParams[key] = value;
+          });
+
+          // Store in memory cache
+          setMemoryCache(cacheKey, data, ttlMs);
+
+          // Store in database cache (async, don't block response)
+          setDbCache(supabase, cacheKey, endpoint, queryParams, data, 200, ttlMs).catch(err => {
+            console.error('[DB ERROR] Failed to write cache');
+          });
+
+          console.info(`[CACHED] ${endpoint} TTL=${ttlMs / 1000}s`);
+
+          return { success: true, data };
+
+        } catch (fetchError: unknown) {
+          clearTimeout(timeoutId);
+          
+          // Check if it's a timeout/abort error
+          if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+            metrics.timeouts++;
+            if (attempt < MAX_RETRIES) {
+              const backoffMs = BASE_BACKOFF_MS * Math.pow(2, attempt);
+              console.warn(`[TIMEOUT] Request timed out after ${FETCH_TIMEOUT_MS}ms. Retrying in ${backoffMs}ms...`);
+              await new Promise(resolve => setTimeout(resolve, backoffMs));
+              continue;
+            }
+            console.error(`[TIMEOUT] Request timed out after ${MAX_RETRIES + 1} attempts`);
+            return { success: false, error: errorResponse(504, 'Gateway timeout', 'Request to external API timed out') };
+          }
+          
+          throw fetchError; // Re-throw for outer catch
+        }
+
+      } catch (error: unknown) {
+        if (attempt < MAX_RETRIES) {
+          const backoffMs = BASE_BACKOFF_MS * Math.pow(2, attempt);
+          console.warn(`[ERROR] Unexpected error. Retrying in ${backoffMs}ms...`);
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+          continue;
+        }
+        
+        metrics.apiErrors++;
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`[ERROR] ${errorMessage}`);
+        return { success: false, error: errorResponse(500, 'Internal server error', 'An unexpected error occurred') };
+      }
+    }
+
+    // Should never reach here, but TypeScript needs it
+    metrics.apiErrors++;
+    return { success: false, error: errorResponse(500, 'Internal server error', 'Max retries exceeded') };
   })();
 
   // Register the in-flight request
