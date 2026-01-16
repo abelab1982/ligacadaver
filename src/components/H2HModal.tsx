@@ -1,10 +1,12 @@
 import { useEffect, useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertCircle, Swords, ChevronDown, ChevronUp, Calendar, RefreshCw } from "lucide-react";
+import { AlertCircle, Swords, ChevronDown, ChevronUp, Calendar, RefreshCw, TrendingUp } from "lucide-react";
 import { useH2H, H2HFixture } from "@/hooks/useH2H";
 import { format, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { TeamLogo } from "@/components/TeamLogo";
+import fixtureData from "@/data/fixture.json";
+import { initialTeams } from "@/data/teams";
 
 interface H2HModalProps {
   open: boolean;
@@ -65,6 +67,70 @@ function getFutureFixtures(fixtures: H2HFixture[]): H2HFixture[] {
       return fixtureDate.getTime() >= today.getTime();
     })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+}
+
+// Helper to get team's recent form from local fixture data
+interface LocalMatch {
+  homeId: string;
+  awayId: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  status: string;
+}
+
+interface TeamRecentForm {
+  results: ("V" | "E" | "D")[];
+  goalsFor: number;
+  goalsAgainst: number;
+  matchesPlayed: number;
+}
+
+function getTeamRecentForm(teamId: string, limit: number = 5): TeamRecentForm {
+  const allMatches: LocalMatch[] = [];
+  
+  // Flatten all matches from fixture.json
+  fixtureData.matches.forEach(round => {
+    round.matches.forEach(match => {
+      if (match.status === "played" && match.homeScore !== null && match.awayScore !== null) {
+        allMatches.push(match as LocalMatch);
+      }
+    });
+  });
+  
+  // Filter matches where this team played
+  const teamMatches = allMatches.filter(m => m.homeId === teamId || m.awayId === teamId);
+  
+  // Sort by most recent (we don't have dates in local fixture, so just use as-is - already in round order)
+  // Take last N matches
+  const recentMatches = teamMatches.slice(-limit).reverse();
+  
+  const results: ("V" | "E" | "D")[] = [];
+  let goalsFor = 0;
+  let goalsAgainst = 0;
+  
+  recentMatches.forEach(match => {
+    const isHome = match.homeId === teamId;
+    const teamGoals = isHome ? match.homeScore! : match.awayScore!;
+    const opponentGoals = isHome ? match.awayScore! : match.homeScore!;
+    
+    goalsFor += teamGoals;
+    goalsAgainst += opponentGoals;
+    
+    if (teamGoals > opponentGoals) {
+      results.push("V");
+    } else if (teamGoals < opponentGoals) {
+      results.push("D");
+    } else {
+      results.push("E");
+    }
+  });
+  
+  return {
+    results,
+    goalsFor,
+    goalsAgainst,
+    matchesPlayed: recentMatches.length,
+  };
 }
 
 // Result chip component
@@ -370,7 +436,7 @@ function KPIsSection({ playedFixtures, homeTeamName, awayTeamName, homeApiId }: 
   );
 }
 
-// Last 5 form section
+// Last 5 form section (H2H)
 function Last5Section({ playedFixtures, homeTeamName, awayTeamName, homeApiId }: { 
   playedFixtures: H2HFixture[]; 
   homeTeamName: string; 
@@ -531,16 +597,125 @@ function HistorySection({ playedFixtures, homeApiId }: { playedFixtures: H2HFixt
   );
 }
 
-// Empty state
-function EmptyState() {
+// ============================================
+// NEW: Fallback sections when no H2H exists
+// ============================================
+
+// Team recent form card (uses local fixture data)
+function TeamRecentFormCard({ 
+  teamId, 
+  teamName 
+}: { 
+  teamId: string; 
+  teamName: string;
+}) {
+  const abbr = getAbbr(teamName);
+  const team = initialTeams.find(t => t.id === teamId);
+  const form = getTeamRecentForm(teamId, 5);
+  
+  const hasData = form.matchesPlayed > 0;
+  const avgGoalsFor = hasData ? (form.goalsFor / form.matchesPlayed).toFixed(1) : "-";
+  const avgGoalsAgainst = hasData ? (form.goalsAgainst / form.matchesPlayed).toFixed(1) : "-";
+  
   return (
-    <div className="flex flex-col items-center justify-center py-8 gap-2 text-center">
-      <Swords className="w-10 h-10 text-muted-foreground/50" />
-      <div>
-        <p className="font-medium text-sm">Sin enfrentamientos</p>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          No hay partidos registrados entre estos equipos
+    <div className="flex-1 bg-card/50 rounded-lg p-3 min-w-0">
+      {/* Header with logo and name */}
+      <div className="flex items-center gap-2 mb-3">
+        <TeamLogo 
+          teamId={teamId} 
+          teamName={teamName} 
+          abbreviation={abbr}
+          primaryColor={team?.primaryColor || "#374151"}
+          size="sm" 
+        />
+        <div className="min-w-0">
+          <div className="text-xs font-semibold text-foreground truncate">{abbr}</div>
+          <div className="text-[10px] text-muted-foreground truncate">{teamName}</div>
+        </div>
+      </div>
+      
+      {hasData ? (
+        <>
+          {/* Form chips */}
+          <div className="mb-3">
+            <div className="text-[10px] text-muted-foreground mb-1.5">Forma reciente</div>
+            <div className="flex gap-1">
+              {form.results.map((result, idx) => (
+                <ResultChip key={idx} result={result} />
+              ))}
+              {form.results.length === 0 && (
+                <span className="text-[10px] text-muted-foreground italic">Sin datos</span>
+              )}
+            </div>
+          </div>
+          
+          {/* Stats */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="text-center bg-background/50 rounded px-2 py-1.5">
+              <div className="text-sm font-bold text-green-400">{avgGoalsFor}</div>
+              <div className="text-[9px] text-muted-foreground">GF/partido</div>
+            </div>
+            <div className="text-center bg-background/50 rounded px-2 py-1.5">
+              <div className="text-sm font-bold text-red-400">{avgGoalsAgainst}</div>
+              <div className="text-[9px] text-muted-foreground">GC/partido</div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="text-center py-4">
+          <p className="text-[11px] text-muted-foreground italic">
+            Sin datos suficientes
+          </p>
+          <p className="text-[10px] text-muted-foreground/70 mt-1">
+            No hay partidos jugados en el torneo
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// No H2H fallback state with team forms
+function NoH2HFallback({ 
+  homeTeamId, 
+  homeTeamName, 
+  awayTeamId, 
+  awayTeamName,
+  nextMatch 
+}: { 
+  homeTeamId: string; 
+  homeTeamName: string;
+  awayTeamId: string;
+  awayTeamName: string;
+  nextMatch: H2HFixture | null;
+}) {
+  return (
+    <div className="space-y-4">
+      {/* Next match section */}
+      <NextMatchSection 
+        fixture={nextMatch} 
+        homeTeamName={homeTeamName} 
+        awayTeamName={awayTeamName} 
+      />
+      
+      {/* No H2H message */}
+      <div className="flex items-center gap-2 bg-muted/30 border border-border/50 rounded-lg px-3 py-2">
+        <Swords className="w-4 h-4 text-muted-foreground shrink-0" />
+        <p className="text-[11px] text-muted-foreground">
+          Sin enfrentamientos directos registrados entre estos equipos
         </p>
+      </div>
+      
+      {/* Team forms header */}
+      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+        <TrendingUp className="w-3.5 h-3.5" />
+        Rendimiento reciente de cada equipo
+      </div>
+      
+      {/* Two team form cards */}
+      <div className="flex gap-3">
+        <TeamRecentFormCard teamId={homeTeamId} teamName={homeTeamName} />
+        <TeamRecentFormCard teamId={awayTeamId} teamName={awayTeamName} />
       </div>
     </div>
   );
@@ -607,7 +782,7 @@ export function H2HModal({
     };
   }, [data]);
 
-  const nextMatch = futureFixtures[0];
+  const nextMatch = futureFixtures[0] || null;
   const hasPlayedMatches = playedFixtures.length > 0;
 
   return (
@@ -646,23 +821,23 @@ export function H2HModal({
           
           {error && <ErrorState error={error} onRetry={retry} rateLimited={rateLimited} />}
           
+          {/* No H2H matches - show fallback with team forms */}
           {data && !hasPlayedMatches && (
-            <>
-              {/* Next match section - shows "Por confirmar" if no future match */}
-              <NextMatchSection 
-                fixture={nextMatch || null} 
-                homeTeamName={homeTeamName} 
-                awayTeamName={awayTeamName} 
-              />
-              <EmptyState />
-            </>
+            <NoH2HFallback 
+              homeTeamId={homeTeamId}
+              homeTeamName={homeTeamName}
+              awayTeamId={awayTeamId}
+              awayTeamName={awayTeamName}
+              nextMatch={nextMatch}
+            />
           )}
           
+          {/* Has H2H matches - show full stats */}
           {data && hasPlayedMatches && (
             <>
               {/* Next match section - shows "Por confirmar" if no future match */}
               <NextMatchSection 
-                fixture={nextMatch || null} 
+                fixture={nextMatch} 
                 homeTeamName={homeTeamName} 
                 awayTeamName={awayTeamName} 
               />
@@ -690,8 +865,8 @@ export function H2HModal({
             </>
           )}
           
-          {/* CTA soft link */}
-          {hasPlayedMatches && (
+          {/* CTA soft link - only show when there's data */}
+          {data && (
             <div className="pt-2">
               <p className="text-[11px] text-muted-foreground text-center">
                 ¿Y si lo simulas ahora?{" "}
