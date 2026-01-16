@@ -36,6 +36,26 @@ interface MemoryCacheEntry {
 }
 const memoryCache = new Map<string, MemoryCacheEntry>();
 
+// ============ IN-FLIGHT REQUEST DEDUPLICATION ============
+// Tracks promises for requests currently being fetched
+// Multiple requests to the same cache key will share the same promise
+interface InFlightEntry {
+  promise: Promise<{ success: true; data: unknown } | { success: false; error: Response }>;
+  timestamp: number;
+}
+const inFlightRequests = new Map<string, InFlightEntry>();
+
+// Cleanup stale in-flight entries (safety net for hung requests)
+function cleanupInFlightRequests() {
+  const now = Date.now();
+  const maxAge = 30000; // 30 seconds max for any request
+  for (const [key, entry] of inFlightRequests.entries()) {
+    if (now - entry.timestamp > maxAge) {
+      inFlightRequests.delete(key);
+    }
+  }
+}
+
 // Cleanup memory cache periodically
 function cleanupMemoryCache() {
   const now = Date.now();
@@ -44,6 +64,8 @@ function cleanupMemoryCache() {
       memoryCache.delete(key);
     }
   }
+  // Also cleanup stale in-flight requests
+  cleanupInFlightRequests();
 }
 setInterval(cleanupMemoryCache, 60000); // Every minute
 
@@ -440,88 +462,124 @@ serve(async (req) => {
     return successResponse(dbCached.data, true);
   }
 
-  // ============ FETCH FROM API-FOOTBALL ============
+  // ============ CHECK FOR IN-FLIGHT REQUEST (DEDUPLICATION) ============
+  
+  const existingInFlight = inFlightRequests.get(cacheKey);
+  if (existingInFlight) {
+    console.info(`[IN-FLIGHT] Waiting for existing request: ${cacheKey}`);
+    const result = await existingInFlight.promise;
+    if (result.success) {
+      return successResponse(result.data, true);
+    } else {
+      // Clone the error response since Response body can only be consumed once
+      return result.error.clone();
+    }
+  }
+
+  // ============ FETCH FROM API-FOOTBALL (WITH DEDUPLICATION) ============
+
+  // Create a promise that other concurrent requests can wait on
+  const fetchPromise = (async (): Promise<{ success: true; data: unknown } | { success: false; error: Response }> => {
+    try {
+      const apiKey = Deno.env.get('API_FOOTBALL_KEY');
+      if (!apiKey) {
+        console.error('API_FOOTBALL_KEY not configured');
+        return { success: false, error: errorResponse(500, 'Server configuration error', 'API key not configured') };
+      }
+
+      const apiFootballUrl = `https://v3.football.api-sports.io${apiPath}${queryString}`;
+      
+      console.info(`[CACHE MISS] Fetching from API: ${apiPath}${queryString}`);
+
+      const response = await fetch(apiFootballUrl, {
+        method: 'GET',
+        headers: {
+          'x-apisports-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.status === 401) {
+        return { success: false, error: errorResponse(401, 'Authentication failed', 'Invalid API key') };
+      }
+
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After');
+        const retrySeconds = retryAfter ? parseInt(retryAfter) : 60;
+        return { success: false, error: errorResponse(429, 'Rate limit exceeded', retryAfter ? `Retry after ${retryAfter} seconds` : 'Too many requests', retrySeconds) };
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`API-Football error: ${response.status} - ${errorText}`);
+        return { success: false, error: errorResponse(response.status, 'API request failed', `Status: ${response.status}`) };
+      }
+
+      const data = await response.json();
+
+      // Check for API-level errors
+      if (data.errors && Object.keys(data.errors).length > 0) {
+        console.warn('API-Football returned errors:', JSON.stringify(data.errors));
+        return { 
+          success: false, 
+          error: new Response(
+            JSON.stringify({
+              success: false,
+              error: {
+                code: 400,
+                message: 'API returned errors',
+                details: data.errors,
+              },
+              response: data.response || [],
+            }),
+            {
+              status: 200,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          )
+        };
+      }
+
+      // ============ STORE IN CACHE ============
+
+      // Parse query params for logging
+      const queryParams: Record<string, string> = {};
+      url.searchParams.forEach((value, key) => {
+        queryParams[key] = value;
+      });
+
+      // Store in memory cache
+      setMemoryCache(cacheKey, data, ttlMs);
+
+      // Store in database cache (async, don't block response)
+      setDbCache(supabase, cacheKey, endpoint, queryParams, data, 200, ttlMs).catch(err => {
+        console.error('Failed to write DB cache:', err);
+      });
+
+      console.info(`[CACHED] ${cacheKey} with TTL ${ttlMs / 1000}s`);
+
+      return { success: true, data };
+
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Proxy error:', errorMessage);
+      return { success: false, error: errorResponse(500, 'Internal server error', 'An unexpected error occurred') };
+    }
+  })();
+
+  // Register the in-flight request
+  inFlightRequests.set(cacheKey, { promise: fetchPromise, timestamp: Date.now() });
 
   try {
-    const apiKey = Deno.env.get('API_FOOTBALL_KEY');
-    if (!apiKey) {
-      console.error('API_FOOTBALL_KEY not configured');
-      return errorResponse(500, 'Server configuration error', 'API key not configured');
-    }
-
-    const apiFootballUrl = `https://v3.football.api-sports.io${apiPath}${queryString}`;
+    const result = await fetchPromise;
     
-    console.info(`[CACHE MISS] Fetching from API: ${apiPath}${queryString}`);
-
-    const response = await fetch(apiFootballUrl, {
-      method: 'GET',
-      headers: {
-        'x-apisports-key': apiKey,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (response.status === 401) {
-      return errorResponse(401, 'Authentication failed', 'Invalid API key');
+    if (result.success) {
+      return successResponse(result.data, false);
+    } else {
+      return result.error;
     }
-
-    if (response.status === 429) {
-      const retryAfter = response.headers.get('Retry-After');
-      const retrySeconds = retryAfter ? parseInt(retryAfter) : 60;
-      return errorResponse(429, 'Rate limit exceeded', retryAfter ? `Retry after ${retryAfter} seconds` : 'Too many requests', retrySeconds);
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`API-Football error: ${response.status} - ${errorText}`);
-      return errorResponse(response.status, 'API request failed', `Status: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    // Check for API-level errors
-    if (data.errors && Object.keys(data.errors).length > 0) {
-      console.warn('API-Football returned errors:', JSON.stringify(data.errors));
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: {
-            code: 400,
-            message: 'API returned errors',
-            details: data.errors,
-          },
-          response: data.response || [],
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    // ============ STORE IN CACHE ============
-
-    // Parse query params for logging
-    const queryParams: Record<string, string> = {};
-    url.searchParams.forEach((value, key) => {
-      queryParams[key] = value;
-    });
-
-    // Store in memory cache
-    setMemoryCache(cacheKey, data, ttlMs);
-
-    // Store in database cache (async, don't block response)
-    setDbCache(supabase, cacheKey, endpoint, queryParams, data, 200, ttlMs).catch(err => {
-      console.error('Failed to write DB cache:', err);
-    });
-
-    console.info(`[CACHED] ${cacheKey} with TTL ${ttlMs / 1000}s`);
-
-    return successResponse(data, false);
-
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Proxy error:', errorMessage);
-    return errorResponse(500, 'Internal server error', 'An unexpected error occurred');
+  } finally {
+    // Always clean up the in-flight request when done
+    inFlightRequests.delete(cacheKey);
   }
 });
