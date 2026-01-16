@@ -375,16 +375,31 @@ function KPIsSection({ playedFixtures, homeTeamName, awayTeamName, homeApiId }: 
 }
 
 // Last 5 form section (H2H)
-function Last5Section({ playedFixtures, homeTeamName, awayTeamName, homeApiId }: { 
+function Last5Section({ playedFixtures, homeTeamName, awayTeamName, homeApiId, awayApiId }: { 
   playedFixtures: H2HFixture[]; 
   homeTeamName: string; 
   awayTeamName: string;
   homeApiId: number;
+  awayApiId: number;
 }) {
   // Get last 5 played fixtures
   const last5 = playedFixtures.slice(0, 5);
   
   if (last5.length === 0) return null;
+  
+  // Calculate form from each team's perspective
+  const getResultForTeam = (fixture: H2HFixture, teamApiId: number): "V" | "E" | "D" => {
+    if (fixture.winner === "draw") return "E";
+    
+    // Check if this team was home or away in this specific fixture
+    const wasHome = fixture.homeId === teamApiId;
+    const wasAway = fixture.awayId === teamApiId;
+    
+    if (wasHome && fixture.winner === "home") return "V";
+    if (wasAway && fixture.winner === "away") return "V";
+    
+    return "D";
+  };
   
   return (
     <div className="space-y-2">
@@ -395,21 +410,9 @@ function Last5Section({ playedFixtures, homeTeamName, awayTeamName, homeApiId }:
         <div className="flex-1">
           <div className="text-[10px] text-muted-foreground mb-1">{getAbbr(homeTeamName)}</div>
           <div className="flex gap-1">
-            {last5.map((fixture, idx) => {
-              // Determine result from homeTeam perspective
-              const isHomeTeamHome = fixture.homeId === homeApiId;
-              let result: "V" | "E" | "D";
-              
-              if (fixture.winner === "draw") {
-                result = "E";
-              } else if ((fixture.winner === "home" && isHomeTeamHome) || (fixture.winner === "away" && !isHomeTeamHome)) {
-                result = "V";
-              } else {
-                result = "D";
-              }
-              
-              return <ResultChip key={idx} result={result} />;
-            })}
+            {last5.map((fixture, idx) => (
+              <ResultChip key={idx} result={getResultForTeam(fixture, homeApiId)} />
+            ))}
           </div>
           <div className="text-[9px] text-muted-foreground/70 mt-1">Forma H2H</div>
         </div>
@@ -418,21 +421,9 @@ function Last5Section({ playedFixtures, homeTeamName, awayTeamName, homeApiId }:
         <div className="flex-1 text-right">
           <div className="text-[10px] text-muted-foreground mb-1">{getAbbr(awayTeamName)}</div>
           <div className="flex gap-1 justify-end">
-            {last5.map((fixture, idx) => {
-              // Determine result from awayTeam perspective
-              const isAwayTeamHome = fixture.homeId !== homeApiId;
-              let result: "V" | "E" | "D";
-              
-              if (fixture.winner === "draw") {
-                result = "E";
-              } else if ((fixture.winner === "home" && !isAwayTeamHome) || (fixture.winner === "away" && isAwayTeamHome)) {
-                result = "V";
-              } else {
-                result = "D";
-              }
-              
-              return <ResultChip key={idx} result={result} />;
-            })}
+            {last5.map((fixture, idx) => (
+              <ResultChip key={idx} result={getResultForTeam(fixture, awayApiId)} />
+            ))}
           </div>
           <div className="text-[9px] text-muted-foreground/70 mt-1">Forma H2H</div>
         </div>
@@ -824,7 +815,8 @@ export function H2HModal({
                 playedFixtures={playedFixtures} 
                 homeTeamName={homeTeamName} 
                 awayTeamName={awayTeamName} 
-                homeApiId={homeApiId} 
+                homeApiId={homeApiId}
+                awayApiId={awayApiId}
               />
               <HistorySection playedFixtures={playedFixtures} homeApiId={homeApiId} />
             </>
