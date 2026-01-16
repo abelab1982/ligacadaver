@@ -15,6 +15,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { trackShareClick } from "@/lib/gtm";
 
 type ViewType = "fixture" | "tabla";
 
@@ -168,7 +169,10 @@ export const MainLayout = () => {
                 <Button
                   size="lg"
                   className="w-14 h-14 rounded-full shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-shadow"
-                  onClick={() => setShareDialogOpen(true)}
+                  onClick={() => {
+                    trackShareClick("fab_button");
+                    setShareDialogOpen(true);
+                  }}
                 >
                   <Share2 className="w-6 h-6" />
                 </Button>
