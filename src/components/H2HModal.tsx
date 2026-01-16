@@ -1,11 +1,11 @@
 import { useEffect, useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertCircle, Swords, ChevronDown, ChevronUp, Calendar, RefreshCw, TrendingUp } from "lucide-react";
+import { AlertCircle, Swords, ChevronDown, ChevronUp, Calendar, RefreshCw, TrendingUp, Loader2 } from "lucide-react";
 import { useH2H, H2HFixture } from "@/hooks/useH2H";
+import { useTeamRecentForm } from "@/hooks/useTeamRecentForm";
 import { format, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { TeamLogo } from "@/components/TeamLogo";
-import fixtureData from "@/data/fixture.json";
 import { initialTeams } from "@/data/teams";
 
 interface H2HModalProps {
@@ -69,69 +69,7 @@ function getFutureFixtures(fixtures: H2HFixture[]): H2HFixture[] {
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 
-// Helper to get team's recent form from local fixture data
-interface LocalMatch {
-  homeId: string;
-  awayId: string;
-  homeScore: number | null;
-  awayScore: number | null;
-  status: string;
-}
-
-interface TeamRecentForm {
-  results: ("V" | "E" | "D")[];
-  goalsFor: number;
-  goalsAgainst: number;
-  matchesPlayed: number;
-}
-
-function getTeamRecentForm(teamId: string, limit: number = 5): TeamRecentForm {
-  const allMatches: LocalMatch[] = [];
-  
-  // Flatten all matches from fixture.json
-  fixtureData.matches.forEach(round => {
-    round.matches.forEach(match => {
-      if (match.status === "played" && match.homeScore !== null && match.awayScore !== null) {
-        allMatches.push(match as LocalMatch);
-      }
-    });
-  });
-  
-  // Filter matches where this team played
-  const teamMatches = allMatches.filter(m => m.homeId === teamId || m.awayId === teamId);
-  
-  // Sort by most recent (we don't have dates in local fixture, so just use as-is - already in round order)
-  // Take last N matches
-  const recentMatches = teamMatches.slice(-limit).reverse();
-  
-  const results: ("V" | "E" | "D")[] = [];
-  let goalsFor = 0;
-  let goalsAgainst = 0;
-  
-  recentMatches.forEach(match => {
-    const isHome = match.homeId === teamId;
-    const teamGoals = isHome ? match.homeScore! : match.awayScore!;
-    const opponentGoals = isHome ? match.awayScore! : match.homeScore!;
-    
-    goalsFor += teamGoals;
-    goalsAgainst += opponentGoals;
-    
-    if (teamGoals > opponentGoals) {
-      results.push("V");
-    } else if (teamGoals < opponentGoals) {
-      results.push("D");
-    } else {
-      results.push("E");
-    }
-  });
-  
-  return {
-    results,
-    goalsFor,
-    goalsAgainst,
-    matchesPlayed: recentMatches.length,
-  };
-}
+// Note: Team recent form is now fetched via useTeamRecentForm hook from backend API
 
 // Result chip component
 function ResultChip({ result, size = "sm" }: { result: "V" | "E" | "D"; size?: "sm" | "md" }) {
@@ -601,19 +539,21 @@ function HistorySection({ playedFixtures, homeApiId }: { playedFixtures: H2HFixt
 // NEW: Fallback sections when no H2H exists
 // ============================================
 
-// Team recent form card (uses local fixture data)
+// Team recent form card (uses backend API for real match data)
 function TeamRecentFormCard({ 
-  teamId, 
+  apiTeamId, 
+  teamId,
   teamName 
 }: { 
+  apiTeamId: number;
   teamId: string; 
   teamName: string;
 }) {
   const abbr = getAbbr(teamName);
   const team = initialTeams.find(t => t.id === teamId);
-  const form = getTeamRecentForm(teamId, 5);
+  const { data: form, loading, error } = useTeamRecentForm(apiTeamId);
   
-  const hasData = form.matchesPlayed > 0;
+  const hasData = form && form.matchesPlayed > 0;
   const avgGoalsFor = hasData ? (form.goalsFor / form.matchesPlayed).toFixed(1) : "-";
   const avgGoalsAgainst = hasData ? (form.goalsAgainst / form.matchesPlayed).toFixed(1) : "-";
   
@@ -634,18 +574,35 @@ function TeamRecentFormCard({
         </div>
       </div>
       
-      {hasData ? (
+      {/* Loading state */}
+      {loading && (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+        </div>
+      )}
+      
+      {/* Error state */}
+      {error && !loading && (
+        <div className="text-center py-3">
+          <p className="text-[10px] text-red-400">Error al cargar</p>
+        </div>
+      )}
+      
+      {/* Data available */}
+      {!loading && !error && hasData && (
         <>
           {/* Form chips */}
           <div className="mb-3">
-            <div className="text-[10px] text-muted-foreground mb-1.5">Forma reciente</div>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <span className="text-[10px] text-muted-foreground">Forma reciente</span>
+              {form.isPartial && (
+                <span className="text-[9px] text-amber-400 bg-amber-400/10 px-1 rounded">Parcial</span>
+              )}
+            </div>
             <div className="flex gap-1">
               {form.results.map((result, idx) => (
                 <ResultChip key={idx} result={result} />
               ))}
-              {form.results.length === 0 && (
-                <span className="text-[10px] text-muted-foreground italic">Sin datos</span>
-              )}
             </div>
           </div>
           
@@ -661,13 +618,16 @@ function TeamRecentFormCard({
             </div>
           </div>
         </>
-      ) : (
+      )}
+      
+      {/* No data available */}
+      {!loading && !error && !hasData && (
         <div className="text-center py-4">
           <p className="text-[11px] text-muted-foreground italic">
             Sin datos suficientes
           </p>
           <p className="text-[10px] text-muted-foreground/70 mt-1">
-            No hay partidos jugados en el torneo
+            No hay partidos recientes disponibles
           </p>
         </div>
       )}
@@ -679,14 +639,18 @@ function TeamRecentFormCard({
 function NoH2HFallback({ 
   homeTeamId, 
   homeTeamName, 
+  homeApiId,
   awayTeamId, 
   awayTeamName,
+  awayApiId,
   nextMatch 
 }: { 
   homeTeamId: string; 
   homeTeamName: string;
+  homeApiId: number;
   awayTeamId: string;
   awayTeamName: string;
+  awayApiId: number;
   nextMatch: H2HFixture | null;
 }) {
   return (
@@ -712,10 +676,10 @@ function NoH2HFallback({
         Rendimiento reciente de cada equipo
       </div>
       
-      {/* Two team form cards */}
+      {/* Two team form cards - fetch from backend API */}
       <div className="flex gap-3">
-        <TeamRecentFormCard teamId={homeTeamId} teamName={homeTeamName} />
-        <TeamRecentFormCard teamId={awayTeamId} teamName={awayTeamName} />
+        <TeamRecentFormCard apiTeamId={homeApiId} teamId={homeTeamId} teamName={homeTeamName} />
+        <TeamRecentFormCard apiTeamId={awayApiId} teamId={awayTeamId} teamName={awayTeamName} />
       </div>
     </div>
   );
@@ -821,13 +785,14 @@ export function H2HModal({
           
           {error && <ErrorState error={error} onRetry={retry} rateLimited={rateLimited} />}
           
-          {/* No H2H matches - show fallback with team forms */}
           {data && !hasPlayedMatches && (
             <NoH2HFallback 
               homeTeamId={homeTeamId}
               homeTeamName={homeTeamName}
+              homeApiId={homeApiId}
               awayTeamId={awayTeamId}
               awayTeamName={awayTeamName}
+              awayApiId={awayApiId}
               nextMatch={nextMatch}
             />
           )}
