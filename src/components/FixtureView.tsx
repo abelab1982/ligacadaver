@@ -462,7 +462,7 @@ export const FixtureView = ({
       </div>
 
       {/* Matches List - Compact spacing on desktop */}
-      <div className="flex-1 overflow-y-auto p-2 md:p-1.5">
+      <div className="flex-1 overflow-y-auto p-2 md:p-1.5 custom-scrollbar">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentRound}

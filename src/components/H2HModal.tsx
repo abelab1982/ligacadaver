@@ -780,7 +780,7 @@ export function H2HModal({
         </DialogHeader>
 
         {/* Scrollable Body - only scrollable container */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain px-4 py-4 pb-28 md:pb-24 space-y-4 min-w-0">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar overscroll-contain px-4 py-4 pb-28 md:pb-24 space-y-4 min-w-0">
           {loading && <LoadingSkeleton />}
           
           {error && <ErrorState error={error} onRetry={retry} rateLimited={rateLimited} />}

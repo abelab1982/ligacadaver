@@ -305,7 +305,7 @@ export const StandingsView = ({
       </div>
 
       {/* Table with Streamer Mode Overlay */}
-      <div className="flex-1 overflow-y-auto relative">
+      <div className="flex-1 overflow-y-auto relative custom-scrollbar">
         {/* Blur overlay for Streamer Mode */}
         <AnimatePresence>
           {streamerMode && !isRevealed && (
