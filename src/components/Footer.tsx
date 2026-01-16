@@ -1,5 +1,6 @@
 import { ExternalLink } from "lucide-react";
 import yapeQr from "@/assets/yape-qr.jpeg";
+import { trackDonateClick } from "@/lib/gtm";
 
 interface FooterProps {
   minimal?: boolean;
@@ -28,6 +29,10 @@ const BetssonAffiliate = () => (
 );
 
 export const Footer = ({ minimal = false }: FooterProps) => {
+  const handleDonateClick = () => {
+    trackDonateClick("footer");
+  };
+
   if (minimal) {
     return (
       <footer className="w-full bg-card/50 border-t border-border py-4 px-4">
@@ -60,15 +65,18 @@ export const Footer = ({ minimal = false }: FooterProps) => {
           </a>
         </p>
         
-        <p className="text-sm text-muted-foreground">
+        <p 
+          className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+          onClick={handleDonateClick}
+        >
           ¿Te gustó la calculadora? Invítame un café para seguir mejorando la app ☕⚽
         </p>
         
-        <div className="pt-3">
+        <div className="pt-3" onClick={handleDonateClick}>
           <img 
             src={yapeQr} 
             alt="QR Yape para donaciones" 
-            className="w-48 h-48 mx-auto rounded-lg shadow-md"
+            className="w-48 h-48 mx-auto rounded-lg shadow-md cursor-pointer hover:shadow-lg transition-shadow"
           />
         </div>
       </div>

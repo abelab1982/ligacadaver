@@ -13,6 +13,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { trackPredictionChange } from "@/lib/gtm";
 
 interface FixtureViewProps {
   matches: Match[];
@@ -146,12 +147,13 @@ interface MatchCardProps {
   match: Match;
   homeTeam: TeamStats;
   awayTeam: TeamStats;
+  currentRound: number;
   onUpdatePrediction: (matchId: string, home: number | null, away: number | null) => void;
   onConfirmResult: (matchId: string, home: number, away: number) => void;
   onH2HClick: (homeTeam: TeamStats, awayTeam: TeamStats) => void;
 }
 
-const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmResult, onH2HClick }: MatchCardProps) => {
+const MatchCard = ({ match, homeTeam, awayTeam, currentRound, onUpdatePrediction, onConfirmResult, onH2HClick }: MatchCardProps) => {
   const [localHome, setLocalHome] = useState<number | null>(
     match.homePrediction !== null && match.homePrediction !== undefined 
       ? match.homePrediction 
@@ -178,13 +180,30 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
 
   const isPlayed = match.status === "played";
 
+  // Helper to track prediction changes
+  const trackPrediction = (home: number, away: number) => {
+    let result = "draw";
+    if (home > away) result = "home_win";
+    else if (away > home) result = "away_win";
+    
+    trackPredictionChange({
+      fixture_id: match.id,
+      home_team: homeTeam.name,
+      away_team: awayTeam.name,
+      round: currentRound,
+      result_selected: `${home}-${away} (${result})`,
+    });
+  };
+
   // When user activates home score, set home to 0 and away to 0
   const handleHomeActivate = () => {
     setLocalHome(0);
     if (localAway === null) {
       setLocalAway(0);
     }
-    onUpdatePrediction(match.id, 0, localAway === null ? 0 : localAway);
+    const awayVal = localAway === null ? 0 : localAway;
+    onUpdatePrediction(match.id, 0, awayVal);
+    trackPrediction(0, awayVal);
   };
 
   // When user activates away score, set away to 0 and home to 0
@@ -193,7 +212,9 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
     if (localHome === null) {
       setLocalHome(0);
     }
-    onUpdatePrediction(match.id, localHome === null ? 0 : localHome, 0);
+    const homeVal = localHome === null ? 0 : localHome;
+    onUpdatePrediction(match.id, homeVal, 0);
+    trackPrediction(homeVal, 0);
   };
 
   const handleHomeChange = (value: number) => {
@@ -201,6 +222,7 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
     const awayVal = localAway === null ? 0 : localAway;
     if (localAway === null) setLocalAway(0);
     onUpdatePrediction(match.id, value, awayVal);
+    trackPrediction(value, awayVal);
   };
 
   const handleAwayChange = (value: number) => {
@@ -208,6 +230,7 @@ const MatchCard = ({ match, homeTeam, awayTeam, onUpdatePrediction, onConfirmRes
     const homeVal = localHome === null ? 0 : localHome;
     if (localHome === null) setLocalHome(0);
     onUpdatePrediction(match.id, homeVal, value);
+    trackPrediction(homeVal, value);
   };
 
 
@@ -484,6 +507,7 @@ export const FixtureView = ({
                   match={match}
                   homeTeam={homeTeam}
                   awayTeam={awayTeam}
+                  currentRound={currentRound}
                   onUpdatePrediction={onUpdatePrediction}
                   onConfirmResult={onConfirmResult}
                   onH2HClick={handleH2HClick}
