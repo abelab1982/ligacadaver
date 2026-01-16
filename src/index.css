@@ -122,6 +122,17 @@
   }
 }
 
+@layer utilities {
+  /* Hide scrollbar while keeping scroll functionality */
+  .no-scrollbar {
+    -ms-overflow-style: none;  /* IE/Edge legacy */
+    scrollbar-width: none;     /* Firefox */
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;             /* Chrome, Safari, Opera */
+  }
+}
+
 @layer components {
   .position-champion {
     @apply bg-gradient-to-r from-primary/20 to-transparent border-l-4 border-l-primary;
