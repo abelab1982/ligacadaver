@@ -123,13 +123,117 @@
 }
 
 @layer utilities {
-  /* Hide scrollbar while keeping scroll functionality */
+  /* Hide scrollbar completely while keeping scroll functionality */
   .no-scrollbar {
-    -ms-overflow-style: none;  /* IE/Edge legacy */
-    scrollbar-width: none;     /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
   .no-scrollbar::-webkit-scrollbar {
-    display: none;             /* Chrome, Safari, Opera */
+    display: none;
+  }
+
+  /* Custom styled scrollbar for desktop - professional app look */
+  .custom-scrollbar {
+    /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+  }
+  
+  /* Webkit/Chromium (Chrome, Safari, Edge) */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 4px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    transition: background 0.2s ease;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.35);
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Scroll fade indicators - subtle gradient overlays */
+  .scroll-fade-top {
+    position: relative;
+  }
+  .scroll-fade-top::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 24px;
+    background: linear-gradient(to bottom, hsl(var(--background)), transparent);
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0.9;
+  }
+  
+  .scroll-fade-bottom {
+    position: relative;
+  }
+  .scroll-fade-bottom::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 24px;
+    background: linear-gradient(to top, hsl(var(--background)), transparent);
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0.9;
+  }
+  
+  /* Combined fade for both edges */
+  .scroll-fade-both::before,
+  .scroll-fade-both::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 20px;
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0.85;
+  }
+  .scroll-fade-both::before {
+    top: 0;
+    background: linear-gradient(to bottom, hsl(var(--background)), transparent);
+  }
+  .scroll-fade-both::after {
+    bottom: 0;
+    background: linear-gradient(to top, hsl(var(--background)), transparent);
+  }
+
+  /* Mobile: Use native scrollbar (no custom styling) */
+  @media (max-width: 767px) {
+    .custom-scrollbar {
+      scrollbar-width: auto;
+      scrollbar-color: auto;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: auto;
+      height: auto;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: initial;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: initial;
+    }
   }
 }
 
