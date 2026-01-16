@@ -5,17 +5,28 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // ===========================================
 const ALLOWED_ORIGINS = [
   "https://calculadoraliga1.lovable.app",
-  "https://id-preview--9f00ae01-e4fd-422a-b6d0-b2c307ef9ad2.lovable.app",
+  "https://preview--calculadoraliga1.lovable.app",
   "http://localhost:5173",
   "http://localhost:8080",
 ];
 
-function getCorsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get("origin") || "";
-  const isAllowed = ALLOWED_ORIGINS.some(
-    (allowed) => origin === allowed || origin.endsWith(".lovable.app")
-  );
+function isOriginAllowed(origin: string): boolean {
+  if (!origin) return false;
   
+  // Check exact match first
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    return true;
+  }
+  
+  // Allow any subdomain of lovable.app (for preview URLs)
+  if (origin.endsWith(".lovable.app") && origin.startsWith("https://")) {
+    return true;
+  }
+  
+  return false;
+}
+
+function getCorsHeaders(origin: string, isAllowed: boolean): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": isAllowed ? origin : ALLOWED_ORIGINS[0],
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -357,9 +368,15 @@ async function fetchFromProvider(
 }
 
 Deno.serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req);
+  // CORS: Extract and validate origin
+  const origin = req.headers.get("origin") || "";
+  const isAllowed = isOriginAllowed(origin);
+  const corsHeaders = getCorsHeaders(origin, isAllowed);
 
-  // Handle CORS preflight
+  // Temporary debug logging
+  console.log("CORS Debug:", { origin, method: req.method, isAllowed });
+
+  // Handle CORS preflight - MUST respond 204 immediately
   if (req.method === "OPTIONS") {
     return new Response(null, { 
       status: 204,
@@ -684,7 +701,7 @@ Deno.serve(async (req) => {
         providerError: "Unable to fetch match data at this time",
         dataSource: "error",
       } satisfies H2HSummary),
-      { status: 500, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
