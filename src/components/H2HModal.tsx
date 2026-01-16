@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, AlertCircle, Swords, ChevronDown, ChevronUp, Calendar, RefreshCw } from "lucide-react";
-import { useH2H, H2HData, H2HFixture } from "@/hooks/useH2H";
+import { AlertCircle, Swords, ChevronDown, ChevronUp, Calendar, RefreshCw } from "lucide-react";
+import { useH2H, H2HFixture } from "@/hooks/useH2H";
 import { format, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { TeamLogo } from "@/components/TeamLogo";
@@ -49,10 +49,21 @@ function getPlayedFixtures(fixtures: H2HFixture[]): H2HFixture[] {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
-// Helper to get future fixtures (no score yet)
+// Helper to get ONLY future fixtures (date > today AND no score)
 function getFutureFixtures(fixtures: H2HFixture[]): H2HFixture[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Start of today
+  
   return fixtures
-    .filter(f => f.homeGoals === null || f.awayGoals === null)
+    .filter(f => {
+      // Must have no score
+      if (f.homeGoals !== null && f.awayGoals !== null) return false;
+      
+      // Date must be in the future (strictly after today)
+      const fixtureDate = new Date(f.date);
+      fixtureDate.setHours(0, 0, 0, 0);
+      return fixtureDate.getTime() >= today.getTime();
+    })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 
@@ -128,11 +139,39 @@ function LoadingSkeleton() {
   );
 }
 
-// Next match section (for future fixtures)
-function NextMatchSection({ fixture, homeApiId }: { fixture: H2HFixture; homeApiId: number }) {
-  const isRequestedHomeTeamHome = fixture.homeId === homeApiId;
-  const homeAbbr = getAbbr(fixture.homeTeam);
-  const awayAbbr = getAbbr(fixture.awayTeam);
+// Next match section (for future fixtures) - only shows CONFIRMED future dates
+function NextMatchSection({ fixture, homeTeamName, awayTeamName }: { 
+  fixture: H2HFixture | null; 
+  homeTeamName: string;
+  awayTeamName: string;
+}) {
+  const homeAbbr = getAbbr(homeTeamName);
+  const awayAbbr = getAbbr(awayTeamName);
+  
+  // No confirmed future fixture - show neutral "Por confirmar" style
+  if (!fixture) {
+    return (
+      <div className="bg-muted/30 border border-border/50 rounded-lg p-3">
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-medium mb-2">
+          <Calendar className="w-3 h-3" />
+          Próximo partido
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-muted-foreground">{homeAbbr}</span>
+          <div className="text-center">
+            <div className="text-[10px] text-muted-foreground italic">
+              Por confirmar
+            </div>
+          </div>
+          <span className="text-xs font-medium text-muted-foreground">{awayAbbr}</span>
+        </div>
+      </div>
+    );
+  }
+  
+  // Has a confirmed future fixture - show highlighted style
+  const fixtureHomeAbbr = getAbbr(fixture.homeTeam);
+  const fixtureAwayAbbr = getAbbr(fixture.awayTeam);
   
   return (
     <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
@@ -141,13 +180,13 @@ function NextMatchSection({ fixture, homeApiId }: { fixture: H2HFixture; homeApi
         Próximo partido
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium">{homeAbbr}</span>
+        <span className="text-xs font-medium">{fixtureHomeAbbr}</span>
         <div className="text-center">
           <div className="text-[10px] text-muted-foreground">
             {format(new Date(fixture.date), "dd MMM yyyy", { locale: es })}
           </div>
         </div>
-        <span className="text-xs font-medium">{awayAbbr}</span>
+        <span className="text-xs font-medium">{fixtureAwayAbbr}</span>
       </div>
     </div>
   );
@@ -607,39 +646,47 @@ export function H2HModal({
           
           {error && <ErrorState error={error} onRetry={retry} rateLimited={rateLimited} />}
           
-          {data && !hasPlayedMatches && !nextMatch && <EmptyState />}
-          
-          {data && (hasPlayedMatches || nextMatch) && (
+          {data && !hasPlayedMatches && (
             <>
-              {/* Next match section */}
-              {nextMatch && (
-                <NextMatchSection fixture={nextMatch} homeApiId={homeApiId} />
-              )}
+              {/* Next match section - shows "Por confirmar" if no future match */}
+              <NextMatchSection 
+                fixture={nextMatch || null} 
+                homeTeamName={homeTeamName} 
+                awayTeamName={awayTeamName} 
+              />
+              <EmptyState />
+            </>
+          )}
+          
+          {data && hasPlayedMatches && (
+            <>
+              {/* Next match section - shows "Por confirmar" if no future match */}
+              <NextMatchSection 
+                fixture={nextMatch || null} 
+                homeTeamName={homeTeamName} 
+                awayTeamName={awayTeamName} 
+              />
               
-              {/* Stats sections - only if we have played matches */}
-              {hasPlayedMatches && (
-                <>
-                  <SummarySection 
-                    playedFixtures={playedFixtures} 
-                    homeTeamName={homeTeamName} 
-                    awayTeamName={awayTeamName}
-                    homeApiId={homeApiId}
-                  />
-                  <KPIsSection 
-                    playedFixtures={playedFixtures} 
-                    homeTeamName={homeTeamName} 
-                    awayTeamName={awayTeamName}
-                    homeApiId={homeApiId}
-                  />
-                  <Last5Section 
-                    playedFixtures={playedFixtures} 
-                    homeTeamName={homeTeamName} 
-                    awayTeamName={awayTeamName} 
-                    homeApiId={homeApiId} 
-                  />
-                  <HistorySection playedFixtures={playedFixtures} homeApiId={homeApiId} />
-                </>
-              )}
+              {/* Stats sections */}
+              <SummarySection 
+                playedFixtures={playedFixtures} 
+                homeTeamName={homeTeamName} 
+                awayTeamName={awayTeamName}
+                homeApiId={homeApiId}
+              />
+              <KPIsSection 
+                playedFixtures={playedFixtures} 
+                homeTeamName={homeTeamName} 
+                awayTeamName={awayTeamName}
+                homeApiId={homeApiId}
+              />
+              <Last5Section 
+                playedFixtures={playedFixtures} 
+                homeTeamName={homeTeamName} 
+                awayTeamName={awayTeamName} 
+                homeApiId={homeApiId} 
+              />
+              <HistorySection playedFixtures={playedFixtures} homeApiId={homeApiId} />
             </>
           )}
           
