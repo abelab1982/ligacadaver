@@ -1,16 +1,42 @@
+import { ExternalLink } from "lucide-react";
 import yapeQr from "@/assets/yape-qr.jpeg";
 
 interface FooterProps {
   minimal?: boolean;
 }
 
+const BetssonAffiliate = () => (
+  <div className="flex flex-col items-center gap-1.5 py-3">
+    <a
+      href="https://record.betsson.com/_5ti98aEiuztCWYdW1nYrbGNd7ZgqdRLk/1/"
+      target="_blank"
+      rel="noopener noreferrer nofollow sponsored"
+      className="inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 hover:underline transition-colors"
+    >
+      Regístrate y revisa las cuotas en Betsson
+      <ExternalLink className="w-3.5 h-3.5" />
+    </a>
+    <div className="text-center">
+      <p className="text-[9px] text-muted-foreground/70 leading-tight">
+        18+ | SFTG Limited | MINCETUR | Licencias: 11002586010000 y 21002586010000
+      </p>
+      <p className="text-[9px] text-muted-foreground/70">
+        Juega con responsabilidad.
+      </p>
+    </div>
+  </div>
+);
+
 export const Footer = ({ minimal = false }: FooterProps) => {
   if (minimal) {
     return (
       <footer className="w-full bg-card/50 border-t border-border py-4 px-4">
-        <p className="text-xs text-muted-foreground text-center">
-          Creado por <span className="font-medium text-foreground">Digital Trendy</span>
-        </p>
+        <div className="flex flex-col items-center">
+          <BetssonAffiliate />
+          <p className="text-xs text-muted-foreground text-center">
+            Creado por <span className="font-medium text-foreground">Digital Trendy</span>
+          </p>
+        </div>
       </footer>
     );
   }
@@ -18,6 +44,8 @@ export const Footer = ({ minimal = false }: FooterProps) => {
   return (
     <footer className="w-full bg-card/50 border-t border-border py-6 px-4">
       <div className="max-w-md mx-auto text-center space-y-3">
+        <BetssonAffiliate />
+        
         <p className="text-xs text-muted-foreground">
           Creado por <span className="font-medium text-foreground">Digital Trendy</span>
         </p>
