@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertCircle, Swords, ChevronDown, ChevronUp, Calendar, RefreshCw, TrendingUp, Loader2 } from "lucide-react";
+import { AlertCircle, Swords, ChevronDown, ChevronUp, Calendar, RefreshCw, TrendingUp, Loader2, ExternalLink } from "lucide-react";
 import { useH2H, H2HFixture } from "@/hooks/useH2H";
 import { useTeamRecentForm } from "@/hooks/useTeamRecentForm";
 import { format, formatDistanceToNow } from "date-fns";
@@ -780,7 +780,7 @@ export function H2HModal({
         </DialogHeader>
 
         {/* Scrollable Body - only scrollable container */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain px-4 py-4 space-y-4 min-w-0">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain px-4 py-4 pb-28 md:pb-24 space-y-4 min-w-0">
           {loading && <LoadingSkeleton />}
           
           {error && <ErrorState error={error} onRetry={retry} rateLimited={rateLimited} />}
@@ -830,30 +830,43 @@ export function H2HModal({
             </>
           )}
           
-          {/* CTA soft link - only show when there's data */}
-          {data && (
-            <div className="pt-2">
-              <p className="text-[11px] text-muted-foreground text-center">
-                ¿Y si lo simulas ahora?{" "}
-                <button 
-                  onClick={() => onOpenChange(false)}
-                  className="text-primary hover:underline font-medium"
-                >
-                  Prueba este partido en la calculadora
-                </button>
-              </p>
-            </div>
-          )}
-          
           {/* Footer with relative timestamp */}
           {data?.cachedAt && (
-            <div className="flex items-center justify-center pb-2">
+            <div className="flex items-center justify-center">
               <p className="text-[10px] text-muted-foreground/60">
                 Actualizado {formatDistanceToNow(new Date(data.cachedAt), { addSuffix: true, locale: es })}
               </p>
             </div>
           )}
         </div>
+
+        {/* Sticky Betsson CTA Footer */}
+        {data && (
+          <div className="sticky bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border/50 px-4 py-3 shrink-0 safe-area-inset-bottom">
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-xs text-muted-foreground text-center">
+                ¿Quieres ver las cuotas?
+              </p>
+              <a
+                href="https://record.betsson.com/_5ti98aEiuzvO_1XdENIyd2Nd7ZgqdRLk/2/"
+                target="_blank"
+                rel="noopener noreferrer nofollow sponsored"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground font-medium text-sm rounded-lg hover:bg-primary/90 transition-colors shadow-sm"
+              >
+                Ver cuotas en Betsson
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+              <div className="text-center space-y-0.5">
+                <p className="text-[9px] text-muted-foreground/70 leading-tight">
+                  18+ | SFTG Limited | MINCETUR | Licencias: 11002586010000 y 21002586010000
+                </p>
+                <p className="text-[9px] text-muted-foreground/70">
+                  Juega con responsabilidad.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
