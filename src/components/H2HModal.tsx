@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, AlertCircle, Swords, ChevronDown, ChevronUp, Calendar } from "lucide-react";
+import { Loader2, AlertCircle, Swords, ChevronDown, ChevronUp, Calendar, RefreshCw } from "lucide-react";
 import { useH2H, H2HData, H2HFixture } from "@/hooks/useH2H";
 import { format, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
@@ -508,14 +508,30 @@ function EmptyState() {
 }
 
 // Error state
-function ErrorState({ error }: { error: string }) {
+function ErrorState({ error, onRetry, rateLimited }: { error: string; onRetry?: () => void; rateLimited?: boolean }) {
   return (
-    <div className="flex flex-col items-center justify-center py-8 gap-2 text-center">
-      <AlertCircle className="w-10 h-10 text-destructive/70" />
+    <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
+      <AlertCircle className={`w-10 h-10 ${rateLimited ? "text-amber-500/70" : "text-destructive/70"}`} />
       <div>
-        <p className="font-medium text-sm text-destructive">Error al cargar</p>
+        <p className={`font-medium text-sm ${rateLimited ? "text-amber-500" : "text-destructive"}`}>
+          {rateLimited ? "Mucho tráfico" : "Error al cargar"}
+        </p>
         <p className="text-xs text-muted-foreground mt-0.5">{error}</p>
       </div>
+      {onRetry && !rateLimited && (
+        <button
+          onClick={onRetry}
+          className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors mt-1"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          Reintentar
+        </button>
+      )}
+      {rateLimited && (
+        <p className="text-[10px] text-muted-foreground/70 animate-pulse">
+          Podrás reintentar en unos segundos...
+        </p>
+      )}
     </div>
   );
 }
@@ -530,7 +546,7 @@ export function H2HModal({
   homeApiId, 
   awayApiId 
 }: H2HModalProps) {
-  const { data, loading, error, fetchH2H, reset } = useH2H();
+  const { data, loading, error, rateLimited, fetchH2H, reset, retry } = useH2H();
 
   useEffect(() => {
     if (open && homeApiId && awayApiId) {
@@ -592,7 +608,7 @@ export function H2HModal({
         >
           {loading && <LoadingSkeleton />}
           
-          {error && <ErrorState error={error} />}
+          {error && <ErrorState error={error} onRetry={retry} rateLimited={rateLimited} />}
           
           {data && !hasPlayedMatches && !nextMatch && <EmptyState />}
           
