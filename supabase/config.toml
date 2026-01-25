@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.fixtures]
 verify_jwt = false
+
+[functions.livescore-sync]
+verify_jwt = false
