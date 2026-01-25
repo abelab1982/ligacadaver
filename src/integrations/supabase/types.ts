@@ -56,6 +56,66 @@ export type Database = {
         }
         Relationships: []
       }
+      fixtures: {
+        Row: {
+          api_fixture_id: number | null
+          away_id: string
+          away_score: number | null
+          created_at: string
+          home_id: string
+          home_score: number | null
+          id: string
+          is_locked: boolean
+          kick_off: string | null
+          round: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          api_fixture_id?: number | null
+          away_id: string
+          away_score?: number | null
+          created_at?: string
+          home_id: string
+          home_score?: number | null
+          id: string
+          is_locked?: boolean
+          kick_off?: string | null
+          round: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          api_fixture_id?: number | null
+          away_id?: string
+          away_score?: number | null
+          created_at?: string
+          home_id?: string
+          home_score?: number | null
+          id?: string
+          is_locked?: boolean
+          kick_off?: string | null
+          round?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixtures_away_id_fkey"
+            columns: ["away_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixtures_home_id_fkey"
+            columns: ["home_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       h2h_cache: {
         Row: {
           away_team_id: number

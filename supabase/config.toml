@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.api-football]
 verify_jwt = false
+
+[functions.fixtures]
+verify_jwt = false
