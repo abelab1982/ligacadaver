@@ -3,6 +3,7 @@ import { Team, initialTeams } from "@/data/teams";
 import fixtureData from "@/data/fixture.json";
 
 export type MatchStatus = "played" | "pending";
+export type LiveStatus = "NS" | "LIVE" | "FT";
 
 export interface Match {
   id: string;
@@ -13,6 +14,9 @@ export interface Match {
   status: MatchStatus;
   homePrediction?: number | null;
   awayPrediction?: number | null;
+  // Lock support from Supabase
+  isLocked?: boolean;
+  liveStatus?: LiveStatus;
 }
 
 export interface Round {

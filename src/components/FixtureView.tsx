@@ -7,6 +7,8 @@ import { useState, useEffect, useRef } from "react";
 import { TeamLogo } from "@/components/TeamLogo";
 import { Footer } from "./Footer";
 import { H2HModal } from "./H2HModal";
+import { MatchStatusBadge } from "./MatchStatusBadge";
+import type { MatchStatus } from "@/hooks/useFixtures";
 import {
   Tooltip,
   TooltipContent,
@@ -15,8 +17,14 @@ import {
 } from "@/components/ui/tooltip";
 import { trackPredictionChange } from "@/lib/gtm";
 
+// Extended Match interface with lock support
+interface ExtendedMatch extends Match {
+  isLocked?: boolean;
+  liveStatus?: MatchStatus;
+}
+
 interface FixtureViewProps {
-  matches: Match[];
+  matches: ExtendedMatch[];
   currentRound: number;
   totalRounds: number;
   onRoundChange: (round: number) => void;
@@ -144,7 +152,7 @@ const GoalStepper = ({ value, onChange, onActivate, disabled }: GoalStepperProps
 };
 
 interface MatchCardProps {
-  match: Match;
+  match: ExtendedMatch;
   homeTeam: TeamStats;
   awayTeam: TeamStats;
   currentRound: number;
@@ -178,7 +186,10 @@ const MatchCard = ({ match, homeTeam, awayTeam, currentRound, onUpdatePrediction
     }
   }, [match.homePrediction, match.awayPrediction]);
 
-  const isPlayed = match.status === "played";
+  // Determine if match is locked (LIVE or FT from DB) or played (legacy)
+  const isLocked = match.isLocked === true;
+  const isPlayed = match.status === "played" || isLocked;
+  const liveStatus = match.liveStatus || (match.status === "played" ? "FT" : "NS");
 
   // Helper to track prediction changes
   const trackPrediction = (home: number, away: number) => {
@@ -295,22 +306,25 @@ const MatchCard = ({ match, homeTeam, awayTeam, currentRound, onUpdatePrediction
         </div>
 
         {/* Score Row */}
-        <div className="flex items-center justify-center gap-2">
+        <div className="flex flex-col items-center justify-center gap-1">
+          {/* Status Badge */}
+          <MatchStatusBadge status={liveStatus} />
+          
           {isPlayed ? (
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-lg bg-muted/50 flex items-center justify-center text-2xl font-bold text-muted-foreground">
-                {match.homeScore}
+                {match.homeScore ?? "-"}
               </div>
               <span className="text-muted-foreground/50 text-lg font-bold">-</span>
               <div className="w-12 h-12 rounded-lg bg-muted/50 flex items-center justify-center text-2xl font-bold text-muted-foreground">
-                {match.awayScore}
+                {match.awayScore ?? "-"}
               </div>
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <GoalStepper value={localHome} onChange={handleHomeChange} onActivate={handleHomeActivate} />
+              <GoalStepper value={localHome} onChange={handleHomeChange} onActivate={handleHomeActivate} disabled={isLocked} />
               <span className="text-muted-foreground text-lg font-bold">-</span>
-              <GoalStepper value={localAway} onChange={handleAwayChange} onActivate={handleAwayActivate} />
+              <GoalStepper value={localAway} onChange={handleAwayChange} onActivate={handleAwayActivate} disabled={isLocked} />
             </div>
           )}
         </div>
@@ -334,22 +348,25 @@ const MatchCard = ({ match, homeTeam, awayTeam, currentRound, onUpdatePrediction
         </div>
 
         {/* Score - Centered with fixed width */}
-        <div className="flex items-center justify-center w-[120px] shrink-0">
+        <div className="flex flex-col items-center justify-center w-[130px] shrink-0 gap-0.5">
+          {/* Status Badge - Desktop */}
+          <MatchStatusBadge status={liveStatus} />
+          
           {isPlayed ? (
             <div className="flex items-center gap-1">
               <div className="w-7 h-7 rounded bg-muted/50 flex items-center justify-center text-sm font-bold text-muted-foreground">
-                {match.homeScore}
+                {match.homeScore ?? "-"}
               </div>
               <span className="text-muted-foreground/50 text-[10px] font-medium">-</span>
               <div className="w-7 h-7 rounded bg-muted/50 flex items-center justify-center text-sm font-bold text-muted-foreground">
-                {match.awayScore}
+                {match.awayScore ?? "-"}
               </div>
             </div>
           ) : (
             <div className="flex items-center gap-0.5">
-              <GoalStepper value={localHome} onChange={handleHomeChange} onActivate={handleHomeActivate} />
+              <GoalStepper value={localHome} onChange={handleHomeChange} onActivate={handleHomeActivate} disabled={isLocked} />
               <span className="text-muted-foreground text-[10px] font-medium">-</span>
-              <GoalStepper value={localAway} onChange={handleAwayChange} onActivate={handleAwayActivate} />
+              <GoalStepper value={localAway} onChange={handleAwayChange} onActivate={handleAwayActivate} disabled={isLocked} />
             </div>
           )}
         </div>
