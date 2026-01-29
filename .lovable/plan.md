@@ -1,23 +1,33 @@
 
 
-## Plan: Limpiar Fixtures de Prueba
+## Plan: Eliminar la Columna Fair Play (FP)
 
-### Objetivo
-Eliminar los fixtures de demostración (`r1m6`, `r1m7`) de la base de datos para dejar el sistema limpio y listo para datos reales.
+### Resumen
+Remover completamente la columna de Fair Play de la tabla de posiciones ya que no es relevante para el usuario.
 
-### Acción
+---
 
-Ejecutar una consulta DELETE para eliminar los registros de prueba:
+### Cambios a Realizar
 
-```sql
-DELETE FROM fixtures WHERE id IN ('r1m6', 'r1m7');
-```
+#### 1. StandingsView.tsx
+- Eliminar la columna FP de la cabecera de la tabla (línea 401)
+- Eliminar la celda FP con los botones +/- del componente `TeamRow` (líneas 126-150)
+- Remover la prop `onUpdateFairPlay` del componente `TeamRow` ya que no será necesaria
 
-### Resultado Esperado
-- Base de datos de fixtures vacía (0 registros)
-- El frontend mostrará únicamente los datos del archivo `fixture.json` estático
-- Sistema listo para recibir datos reales de la API de livescore
+#### 2. useLeagueEngine.ts
+- Eliminar el criterio de desempate por Fair Play en la función `sortTeams` (línea 96)
+- Mantener el campo `fairPlay` en 0 por compatibilidad de tipos, pero remover la lógica activa
 
-### Consideración
-Los fixtures del archivo `src/data/fixture.json` seguirán funcionando normalmente ya que el hook `useFixtures` combina datos de Supabase con el JSON local.
+#### 3. useLiveLeagueEngine.ts
+- Verificar si tiene lógica de Fair Play similar que deba limpiarse
+
+#### 4. Limpieza de Props
+- Actualizar las interfaces de `TeamRowProps` y `StandingsViewProps` para remover referencias a Fair Play
+
+---
+
+### Resultado Final
+- La tabla mostrará las columnas: #, Equipo, PJ, G, E, P, GF, GC, DG, Pts
+- El desempate será por: Puntos → Diferencia de Goles → Goles a Favor → Orden alfabético
+- Interfaz más limpia sin controles innecesarios
 
