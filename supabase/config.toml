@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.livescore-sync]
 verify_jwt = false
+
+[functions.admin-fixtures]
+verify_jwt = false
