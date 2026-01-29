@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { Team, initialTeams } from "@/data/teams";
 import { useFixtures, Fixture, MatchStatus } from "./useFixtures";
+import fixtureData from "@/data/fixture.json";
 
 export type LegacyMatchStatus = "played" | "pending";
 
@@ -32,12 +33,36 @@ export interface TeamStats extends Team {
   apiTeamId: number;
 }
 
-// Convert Supabase fixture to Match format
+// Interface for JSON fixture match
+interface JsonMatch {
+  id: string;
+  homeId: string;
+  awayId: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  status: string;
+}
+
+// Convert Supabase fixture to internal Fixture format
+const dbFixtureToFixture = (fixture: Fixture): Fixture => fixture;
+
+// Convert JSON match to internal Fixture format
+const jsonMatchToFixture = (match: JsonMatch, round: number): Fixture => ({
+  id: match.id,
+  round,
+  homeId: match.homeId,
+  awayId: match.awayId,
+  homeScore: null,
+  awayScore: null,
+  status: "NS" as MatchStatus,
+  isLocked: false,
+  kickOff: null,
+  homePrediction: null,
+  awayPrediction: null,
+});
+
+// Convert fixture to Match format for FixtureView compatibility
 const fixtureToMatch = (fixture: Fixture): Match => {
-  // Determine legacy status based on live status
-  // FT = played (official result)
-  // LIVE = treat as played for display but scores might change
-  // NS = pending (allow predictions)
   const isOfficial = fixture.status === "FT" || fixture.status === "LIVE";
   
   return {
@@ -52,6 +77,42 @@ const fixtureToMatch = (fixture: Fixture): Match => {
     isLocked: fixture.isLocked,
     liveStatus: fixture.status,
   };
+};
+
+// Merge Supabase fixtures with local JSON fixtures
+// Priority: Supabase data wins when match exists in both
+const mergeFixtures = (supabaseFixtures: Fixture[]): Fixture[] => {
+  const supabaseMap = new Map<string, Fixture>();
+  
+  // Index Supabase fixtures by a composite key (homeId-awayId-round)
+  supabaseFixtures.forEach(f => {
+    // Use composite key to match by teams and round
+    const key = `${f.homeId}-${f.awayId}-${f.round}`;
+    supabaseMap.set(key, f);
+    // Also index by ID for exact matches
+    supabaseMap.set(f.id, f);
+  });
+  
+  const mergedFixtures: Fixture[] = [];
+  
+  // Iterate through all JSON fixtures
+  fixtureData.matches.forEach(roundData => {
+    roundData.matches.forEach((match: JsonMatch) => {
+      // Check if this match exists in Supabase (by composite key or ID)
+      const compositeKey = `${match.homeId}-${match.awayId}-${roundData.round}`;
+      const supabaseMatch = supabaseMap.get(compositeKey) || supabaseMap.get(match.id);
+      
+      if (supabaseMatch) {
+        // Use Supabase data (has live status, scores, lock state)
+        mergedFixtures.push(dbFixtureToFixture(supabaseMatch));
+      } else {
+        // Use JSON data as fallback (pending match)
+        mergedFixtures.push(jsonMatchToFixture(match, roundData.round));
+      }
+    });
+  });
+  
+  return mergedFixtures;
 };
 
 // Calculate team stats from fixtures
@@ -131,7 +192,12 @@ const sortTeams = (teams: TeamStats[], usePredictions: boolean): TeamStats[] => 
 };
 
 export const useLiveLeagueEngine = () => {
-  const { fixtures, loading, error, totalRounds, refetch } = useFixtures();
+  const { fixtures: supabaseFixtures, loading, error, refetch } = useFixtures();
+  
+  // Merge Supabase fixtures with local JSON (Supabase wins when both exist)
+  const allFixtures = useMemo(() => {
+    return mergeFixtures(supabaseFixtures);
+  }, [supabaseFixtures]);
   
   // Local predictions state (client-side only)
   const [predictions, setPredictions] = useState<Map<string, { home: number | null; away: number | null }>>(new Map());
@@ -141,19 +207,19 @@ export const useLiveLeagueEngine = () => {
     Object.fromEntries(initialTeams.map(t => [t.id, 0]))
   );
 
-  // Calculate team stats based on fixtures and predictions
+  // Calculate team stats based on merged fixtures and predictions
   const teams = useMemo(() => {
     const stats = initialTeams.map((t) => ({ 
       ...t, 
-      ...calculateTeamStats(t, fixtures, predictions),
+      ...calculateTeamStats(t, allFixtures, predictions),
       fairPlay: fairPlayScores[t.id] || 0,
     }));
     return sortTeams(stats, showPredictions);
-  }, [fixtures, predictions, showPredictions, fairPlayScores]);
+  }, [allFixtures, predictions, showPredictions, fairPlayScores]);
 
   // Convert fixtures to Match format for FixtureView compatibility
   const getMatchesByRound = useCallback((round: number): Match[] => {
-    return fixtures
+    return allFixtures
       .filter(f => f.round === round)
       .map(f => {
         const prediction = predictions.get(f.id);
@@ -163,7 +229,7 @@ export const useLiveLeagueEngine = () => {
           awayPrediction: prediction?.away ?? null,
         };
       });
-  }, [fixtures, predictions]);
+  }, [allFixtures, predictions]);
 
   // Update prediction
   const updatePrediction = useCallback((matchId: string, homePrediction: number | null, awayPrediction: number | null) => {
@@ -201,7 +267,7 @@ export const useLiveLeagueEngine = () => {
     let totalGoals = 0;
     const roundsWithActivity = new Set<number>();
     
-    fixtures.forEach((fixture) => {
+    allFixtures.forEach((fixture) => {
       // Count official results (FT)
       if (fixture.status === "FT" && fixture.homeScore !== null && fixture.awayScore !== null) {
         totalGoals += fixture.homeScore + fixture.awayScore;
@@ -230,13 +296,13 @@ export const useLiveLeagueEngine = () => {
       totalGoals, 
       averageGoals: roundsPlayed > 0 ? (totalGoals / roundsPlayed).toFixed(2) : "0.00" 
     };
-  }, [fixtures, predictions]);
+  }, [allFixtures, predictions]);
 
   return {
-    fixtures,
+    fixtures: allFixtures,
     teams,
     currentRound,
-    totalRounds: totalRounds || 17,
+    totalRounds: fixtureData.totalRounds,
     showPredictions,
     stats,
     loading,
@@ -252,4 +318,4 @@ export const useLiveLeagueEngine = () => {
     resetFairPlay,
     refetch,
   };
-};
+}
