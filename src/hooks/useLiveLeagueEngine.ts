@@ -184,9 +184,7 @@ const sortTeams = (teams: TeamStats[], usePredictions: boolean): TeamStats[] => 
     if (bGD !== aGD) return bGD - aGD;
     // 3. Goals For
     if (bGF !== aGF) return bGF - aGF;
-    // 4. Fair Play (lower is better)
-    if (a.fairPlay !== b.fairPlay) return a.fairPlay - b.fairPlay;
-    // 5. Alphabetical
+    // 4. Alphabetical
     return a.name.localeCompare(b.name);
   });
 };

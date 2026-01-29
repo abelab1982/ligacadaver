@@ -1,5 +1,5 @@
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
-import { RotateCcw, Eye, EyeOff, Minus, Plus, Tv, Sparkles } from "lucide-react";
+import { RotateCcw, Eye, EyeOff, Tv, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TeamStats } from "@/hooks/useLeagueEngine";
@@ -19,7 +19,6 @@ interface StandingsViewProps {
   onTogglePredictions: () => void;
   onReset: () => void;
   onResetPredictions: () => void;
-  onUpdateFairPlay: (teamId: string, value: number) => void;
   stats: {
     roundsPlayed: number;
     totalGoals: number;
@@ -49,10 +48,9 @@ interface TeamRowProps {
   team: TeamStats;
   position: number;
   showPredictions: boolean;
-  onUpdateFairPlay: (teamId: string, value: number) => void;
 }
 
-const TeamRow = ({ team, position, showPredictions, onUpdateFairPlay }: TeamRowProps) => {
+const TeamRow = ({ team, position, showPredictions }: TeamRowProps) => {
   const statusBadge = getStatusBadge(team.status);
   const zone = getZoneIndicator(position);
   
@@ -123,31 +121,6 @@ const TeamRow = ({ team, position, showPredictions, onUpdateFairPlay }: TeamRowP
         </span>
       </td>
       
-      {/* Fair Play (editable) */}
-      <td className="py-2.5 px-1 text-center hidden xl:table-cell">
-        <div className="flex items-center justify-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-5 h-5 rounded-full"
-            onClick={() => onUpdateFairPlay(team.id, team.fairPlay - 1)}
-            disabled={team.fairPlay <= 0}
-          >
-            <Minus className="w-3 h-3" />
-          </Button>
-          <span className={`w-6 text-xs font-medium ${team.fairPlay > 0 ? "text-orange-400" : "text-muted-foreground"}`}>
-            {team.fairPlay}
-          </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-5 h-5 rounded-full"
-            onClick={() => onUpdateFairPlay(team.id, team.fairPlay + 1)}
-          >
-            <Plus className="w-3 h-3" />
-          </Button>
-        </div>
-      </td>
 
       {/* Points */}
       <td className="py-2.5 px-2 text-center">
@@ -171,7 +144,6 @@ export const StandingsView = ({
   onTogglePredictions,
   onReset,
   onResetPredictions,
-  onUpdateFairPlay,
   stats,
 }: StandingsViewProps) => {
   const [streamerMode, setStreamerMode] = useState(false);
@@ -398,7 +370,7 @@ export const StandingsView = ({
               <th className="py-2 px-1 text-center hidden lg:table-cell">GF</th>
               <th className="py-2 px-1 text-center hidden lg:table-cell">GC</th>
               <th className="py-2 px-1 text-center">DG</th>
-              <th className="py-2 px-1 text-center hidden xl:table-cell">FP</th>
+              
               <th className="py-2 px-2 text-center">Pts</th>
             </tr>
           </thead>
@@ -411,7 +383,6 @@ export const StandingsView = ({
                     team={team}
                     position={index + 1}
                     showPredictions={showPredictions}
-                    onUpdateFairPlay={onUpdateFairPlay}
                   />
                 ))}
               </AnimatePresence>
