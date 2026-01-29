@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Calendar, Trophy, Share2 } from "lucide-react";
+import { Calendar, Trophy, Share2, Loader2 } from "lucide-react";
 import { Header } from "./Header";
 import { Footer } from "./Footer";
 import { FixtureView } from "./FixtureView";
@@ -7,7 +7,7 @@ import { StandingsView } from "./StandingsView";
 import { ShareDialog } from "./ShareDialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { useLeagueEngine } from "@/hooks/useLeagueEngine";
+import { useLiveLeagueEngine } from "@/hooks/useLiveLeagueEngine";
 import { useState } from "react";
 import {
   Tooltip,
@@ -29,6 +29,8 @@ export const MainLayout = () => {
     totalRounds,
     showPredictions,
     stats,
+    loading,
+    error,
     setCurrentRound,
     setShowPredictions,
     updatePrediction,
@@ -37,9 +39,33 @@ export const MainLayout = () => {
     getTeamById,
     getMatchesByRound,
     updateFairPlay,
-  } = useLeagueEngine();
+  } = useLiveLeagueEngine();
 
   const currentMatches = getMatchesByRound(currentRound);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="h-full bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Cargando fixtures...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="h-full bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4 text-center px-4">
+          <p className="text-destructive font-medium">Error al cargar datos</p>
+          <p className="text-muted-foreground text-sm">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full bg-background flex flex-col overflow-hidden">
