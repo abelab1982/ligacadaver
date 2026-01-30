@@ -82,34 +82,52 @@ const fixtureToMatch = (fixture: Fixture): Match => {
 // Merge Supabase fixtures with local JSON fixtures
 // Priority: Supabase data wins when match exists in both
 const mergeFixtures = (supabaseFixtures: Fixture[]): Fixture[] => {
-  const supabaseMap = new Map<string, Fixture>();
+  // Create lookup maps for Supabase fixtures
+  const supabaseByCompositeKey = new Map<string, Fixture>();
+  const supabaseById = new Map<string, Fixture>();
   
-  // Index Supabase fixtures by a composite key (homeId-awayId-round)
+  // Index Supabase fixtures by multiple keys for flexible matching
   supabaseFixtures.forEach(f => {
-    // Use composite key to match by teams and round
-    const key = `${f.homeId}-${f.awayId}-${f.round}`;
-    supabaseMap.set(key, f);
-    // Also index by ID for exact matches
-    supabaseMap.set(f.id, f);
+    // Composite key: teams + round (case-insensitive)
+    const compositeKey = `${f.homeId.toLowerCase()}-${f.awayId.toLowerCase()}-${f.round}`;
+    supabaseByCompositeKey.set(compositeKey, f);
+    // Also index by exact ID
+    supabaseById.set(f.id, f);
   });
   
   const mergedFixtures: Fixture[] = [];
+  const usedSupabaseIds = new Set<string>();
   
-  // Iterate through all JSON fixtures
+  // First pass: match JSON fixtures with Supabase data
   fixtureData.matches.forEach(roundData => {
     roundData.matches.forEach((match: JsonMatch) => {
-      // Check if this match exists in Supabase (by composite key or ID)
-      const compositeKey = `${match.homeId}-${match.awayId}-${roundData.round}`;
-      const supabaseMatch = supabaseMap.get(compositeKey) || supabaseMap.get(match.id);
+      // Build composite key from JSON data
+      const compositeKey = `${match.homeId.toLowerCase()}-${match.awayId.toLowerCase()}-${roundData.round}`;
+      
+      // Try to find matching Supabase fixture
+      const supabaseMatch = supabaseByCompositeKey.get(compositeKey) || supabaseById.get(match.id);
       
       if (supabaseMatch) {
         // Use Supabase data (has live status, scores, lock state)
-        mergedFixtures.push(dbFixtureToFixture(supabaseMatch));
+        // But keep the JSON match ID for UI consistency
+        mergedFixtures.push({
+          ...dbFixtureToFixture(supabaseMatch),
+          // Keep original JSON ID for component keys if needed
+        });
+        usedSupabaseIds.add(supabaseMatch.id);
       } else {
         // Use JSON data as fallback (pending match)
         mergedFixtures.push(jsonMatchToFixture(match, roundData.round));
       }
     });
+  });
+  
+  // Second pass: add any Supabase fixtures not in JSON (safety net)
+  supabaseFixtures.forEach(f => {
+    if (!usedSupabaseIds.has(f.id)) {
+      console.warn(`[mergeFixtures] Supabase fixture ${f.id} (${f.homeId} vs ${f.awayId}, round ${f.round}) not found in JSON`);
+      mergedFixtures.push(dbFixtureToFixture(f));
+    }
   });
   
   return mergedFixtures;
