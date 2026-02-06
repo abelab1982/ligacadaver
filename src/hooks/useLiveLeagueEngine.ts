@@ -217,7 +217,7 @@ export const useLiveLeagueEngine = () => {
   
   // Local predictions state (client-side only)
   const [predictions, setPredictions] = useState<Map<string, { home: number | null; away: number | null }>>(new Map());
-  const [currentRound, setCurrentRound] = useState(1);
+  const [currentRound, setCurrentRound] = useState(2);
   const [showPredictions, setShowPredictions] = useState(true);
   const [fairPlayScores, setFairPlayScores] = useState<Record<string, number>>(() => 
     Object.fromEntries(initialTeams.map(t => [t.id, 0]))
