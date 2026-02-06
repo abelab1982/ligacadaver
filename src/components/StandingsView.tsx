@@ -40,7 +40,7 @@ const getZoneIndicator = (position: number): { color: string; label: string } =>
   if (position === 1) return { color: "bg-amber-500", label: "Campeón" };
   if (position >= 2 && position <= 4) return { color: "bg-green-500", label: "Libertadores" };
   if (position >= 5 && position <= 8) return { color: "bg-blue-500", label: "Sudamericana" };
-  if (position >= 16) return { color: "bg-red-500", label: "Descenso" };
+  if (position >= 17) return { color: "bg-red-500", label: "Descenso" };
   return { color: "bg-transparent", label: "" };
 };
 
@@ -271,7 +271,7 @@ export const StandingsView = ({
                 Descenso
               </span>
             </TooltipTrigger>
-            <TooltipContent>Zona de Descenso (16º-18º)</TooltipContent>
+            <TooltipContent>Zona de Descenso (17º-18º)</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </div>
