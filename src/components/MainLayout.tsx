@@ -1,13 +1,12 @@
 import { motion } from "framer-motion";
-import { Calendar, Trophy, Share2, Loader2 } from "lucide-react";
+import { Calendar, Trophy, Share2, Loader2, BarChart } from "lucide-react";
 import { Header } from "./Header";
-import { Footer } from "./Footer";
 import { FixtureView } from "./FixtureView";
 import { StandingsView } from "./StandingsView";
 import { ShareDialog } from "./ShareDialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { useLiveLeagueEngine } from "@/hooks/useLiveLeagueEngine";
+import { useLiveLeagueEngine, TournamentTab } from "@/hooks/useLiveLeagueEngine";
 import { useState } from "react";
 import {
   Tooltip,
@@ -17,10 +16,16 @@ import {
 } from "@/components/ui/tooltip";
 import { trackShareClick } from "@/lib/gtm";
 
-type ViewType = "fixture" | "tabla";
+type MobileView = "fixture" | "tabla";
+
+const tournamentLabels: Record<TournamentTab, string> = {
+  A: "Apertura",
+  C: "Clausura",
+  ACC: "Acumulada",
+};
 
 export const MainLayout = () => {
-  const [activeTab, setActiveTab] = useState<ViewType>("fixture");
+  const [mobileView, setMobileView] = useState<MobileView>("fixture");
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   
   const {
@@ -31,6 +36,8 @@ export const MainLayout = () => {
     stats,
     loading,
     error,
+    activeTournament,
+    setActiveTournament,
     setCurrentRound,
     setShowPredictions,
     updatePrediction,
@@ -38,12 +45,13 @@ export const MainLayout = () => {
     resetPredictions,
     getTeamById,
     getMatchesByRound,
+    getTeamsByTournament,
+    getStatsByTournament,
     updateFairPlay,
   } = useLiveLeagueEngine();
 
   const currentMatches = getMatchesByRound(currentRound);
 
-  // Loading state
   if (loading) {
     return (
       <div className="h-full bg-background flex items-center justify-center">
@@ -55,7 +63,6 @@ export const MainLayout = () => {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="h-full bg-background flex items-center justify-center">
@@ -67,30 +74,61 @@ export const MainLayout = () => {
     );
   }
 
+  const fixtureLabel = activeTournament === 'ACC' ? 'Fixture - Apertura' : `Fixture - ${tournamentLabels[activeTournament]}`;
+  const standingsLabel = activeTournament === 'ACC' ? 'Tabla Acumulada' : `Tabla - ${tournamentLabels[activeTournament]}`;
+
   return (
     <div className="h-full bg-background flex flex-col overflow-hidden">
-      {/* Gradient Background */}
       <div className="fixed inset-0 bg-gradient-to-br from-background via-background to-primary/5 pointer-events-none" />
       
       <div className="relative z-10 flex flex-col h-screen">
         <Header />
 
-        {/* Mobile Tabs - Only visible on mobile */}
-        <div className="md:hidden border-b border-border bg-card/50">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ViewType)} className="w-full">
-            <TabsList className="w-full grid grid-cols-2 h-12 bg-transparent rounded-none">
+        {/* Tournament Tabs */}
+        <div className="border-b border-border bg-card/50">
+          <Tabs value={activeTournament} onValueChange={(v) => setActiveTournament(v as TournamentTab)} className="w-full">
+            <TabsList className="w-full grid grid-cols-3 h-10 bg-transparent rounded-none">
+              <TabsTrigger 
+                value="A" 
+                className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-none border-b-2 border-transparent data-[state=active]:border-primary gap-1 text-xs md:text-sm"
+              >
+                <Trophy className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                Apertura
+              </TabsTrigger>
+              <TabsTrigger 
+                value="C"
+                className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-none border-b-2 border-transparent data-[state=active]:border-primary gap-1 text-xs md:text-sm"
+              >
+                <Trophy className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                Clausura
+              </TabsTrigger>
+              <TabsTrigger 
+                value="ACC"
+                className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-none border-b-2 border-transparent data-[state=active]:border-primary gap-1 text-xs md:text-sm"
+              >
+                <BarChart className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                Acumulada
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
+        {/* Mobile Sub-Tabs (Fixture/Tabla) - Only visible on mobile */}
+        <div className="md:hidden border-b border-border bg-card/30">
+          <Tabs value={mobileView} onValueChange={(v) => setMobileView(v as MobileView)} className="w-full">
+            <TabsList className="w-full grid grid-cols-2 h-10 bg-transparent rounded-none">
               <TabsTrigger 
                 value="fixture" 
-                className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-none border-b-2 border-transparent data-[state=active]:border-primary gap-2"
+                className="data-[state=active]:bg-muted/50 data-[state=active]:text-foreground rounded-none border-b border-transparent data-[state=active]:border-muted-foreground/30 gap-1.5 text-xs"
               >
-                <Calendar className="w-4 h-4" />
-                Fixture - Apertura
+                <Calendar className="w-3.5 h-3.5" />
+                Fixture
               </TabsTrigger>
               <TabsTrigger 
                 value="tabla"
-                className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-none border-b-2 border-transparent data-[state=active]:border-primary gap-2"
+                className="data-[state=active]:bg-muted/50 data-[state=active]:text-foreground rounded-none border-b border-transparent data-[state=active]:border-muted-foreground/30 gap-1.5 text-xs"
               >
-                <Trophy className="w-4 h-4" />
+                <Trophy className="w-3.5 h-3.5" />
                 Tabla
               </TabsTrigger>
             </TabsList>
@@ -105,18 +143,28 @@ export const MainLayout = () => {
             <div className="w-1/2 border-r border-border flex flex-col">
               <div className="px-4 py-3 border-b border-border bg-card/30 flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-primary" />
-                <h2 className="font-semibold">Fixture - Apertura</h2>
+                <h2 className="font-semibold text-sm">{fixtureLabel}</h2>
               </div>
               <div className="flex-1 overflow-hidden">
-                <FixtureView 
-                  matches={currentMatches}
-                  currentRound={currentRound}
-                  totalRounds={totalRounds}
-                  onRoundChange={setCurrentRound}
-                  onUpdatePrediction={updatePrediction}
-                  onConfirmResult={confirmMatchResult}
-                  getTeamById={getTeamById}
-                />
+                {activeTournament !== 'ACC' ? (
+                  <FixtureView 
+                    matches={currentMatches}
+                    currentRound={currentRound}
+                    totalRounds={totalRounds}
+                    onRoundChange={setCurrentRound}
+                    onUpdatePrediction={updatePrediction}
+                    onConfirmResult={confirmMatchResult}
+                    getTeamById={getTeamById}
+                  />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm p-4 text-center">
+                    <div>
+                      <BarChart className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+                      <p>La tabla acumulada suma los resultados de Apertura y Clausura.</p>
+                      <p className="mt-1 text-xs">Selecciona Apertura o Clausura para ver el fixture.</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -124,7 +172,7 @@ export const MainLayout = () => {
             <div className="w-1/2 flex flex-col">
               <div className="px-4 py-3 border-b border-border bg-card/30 flex items-center gap-2">
                 <Trophy className="w-4 h-4 text-primary" />
-                <h2 className="font-semibold">Tabla de Posiciones - Apertura</h2>
+                <h2 className="font-semibold text-sm">{standingsLabel}</h2>
               </div>
               <div className="flex-1 overflow-hidden">
                 <StandingsView 
@@ -141,27 +189,36 @@ export const MainLayout = () => {
 
           {/* Mobile: Tab Content */}
           <div className="md:hidden flex-1 overflow-hidden">
-            {activeTab === "fixture" ? (
+            {mobileView === "fixture" ? (
               <motion.div
-                key="fixture"
+                key={`fixture-${activeTournament}`}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
                 className="h-full"
               >
-                <FixtureView 
-                  matches={currentMatches}
-                  currentRound={currentRound}
-                  totalRounds={totalRounds}
-                  onRoundChange={setCurrentRound}
-                  onUpdatePrediction={updatePrediction}
-                  onConfirmResult={confirmMatchResult}
-                  getTeamById={getTeamById}
-                />
+                {activeTournament !== 'ACC' ? (
+                  <FixtureView 
+                    matches={currentMatches}
+                    currentRound={currentRound}
+                    totalRounds={totalRounds}
+                    onRoundChange={setCurrentRound}
+                    onUpdatePrediction={updatePrediction}
+                    onConfirmResult={confirmMatchResult}
+                    getTeamById={getTeamById}
+                  />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm p-4 text-center">
+                    <div>
+                      <BarChart className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+                      <p>Selecciona Apertura o Clausura para ver el fixture.</p>
+                    </div>
+                  </div>
+                )}
               </motion.div>
             ) : (
               <motion.div
-                key="tabla"
+                key={`tabla-${activeTournament}`}
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}

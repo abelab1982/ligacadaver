@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { Team, initialTeams } from "@/data/teams";
-import { useFixtures, Fixture, MatchStatus } from "./useFixtures";
+import { useFixtures, Fixture, MatchStatus, TournamentType } from "./useFixtures";
 import fixtureData from "@/data/fixture.json";
 
 export type LegacyMatchStatus = "played" | "pending";
@@ -47,7 +47,7 @@ interface JsonMatch {
 const dbFixtureToFixture = (fixture: Fixture): Fixture => fixture;
 
 // Convert JSON match to internal Fixture format
-const jsonMatchToFixture = (match: JsonMatch, round: number): Fixture => ({
+const jsonMatchToFixture = (match: JsonMatch, round: number, tournament: TournamentType = 'A'): Fixture => ({
   id: match.id,
   round,
   homeId: match.homeId,
@@ -57,6 +57,7 @@ const jsonMatchToFixture = (match: JsonMatch, round: number): Fixture => ({
   status: "NS" as MatchStatus,
   isLocked: false,
   kickOff: null,
+  tournament,
   homePrediction: null,
   awayPrediction: null,
 });
@@ -79,55 +80,50 @@ const fixtureToMatch = (fixture: Fixture): Match => {
   };
 };
 
-// Merge Supabase fixtures with local JSON fixtures
-// Priority: Supabase data wins when match exists in both
+// Merge Supabase fixtures with local JSON fixtures (Apertura only)
+// Clausura comes entirely from DB
 const mergeFixtures = (supabaseFixtures: Fixture[]): Fixture[] => {
-  // Create lookup maps for Supabase fixtures
+  const aperturaDbFixtures = supabaseFixtures.filter(f => f.tournament === 'A');
+  const clausuraDbFixtures = supabaseFixtures.filter(f => f.tournament === 'C');
+  
+  // Create lookup maps for Apertura Supabase fixtures
   const supabaseByCompositeKey = new Map<string, Fixture>();
   const supabaseById = new Map<string, Fixture>();
   
-  // Index Supabase fixtures by multiple keys for flexible matching
-  supabaseFixtures.forEach(f => {
-    // Composite key: teams + round (case-insensitive)
+  aperturaDbFixtures.forEach(f => {
     const compositeKey = `${f.homeId.toLowerCase()}-${f.awayId.toLowerCase()}-${f.round}`;
     supabaseByCompositeKey.set(compositeKey, f);
-    // Also index by exact ID
     supabaseById.set(f.id, f);
   });
   
   const mergedFixtures: Fixture[] = [];
   const usedSupabaseIds = new Set<string>();
   
-  // First pass: match JSON fixtures with Supabase data
+  // First pass: match JSON fixtures with Supabase Apertura data
   fixtureData.matches.forEach(roundData => {
     roundData.matches.forEach((match: JsonMatch) => {
-      // Build composite key from JSON data
       const compositeKey = `${match.homeId.toLowerCase()}-${match.awayId.toLowerCase()}-${roundData.round}`;
-      
-      // Try to find matching Supabase fixture
       const supabaseMatch = supabaseByCompositeKey.get(compositeKey) || supabaseById.get(match.id);
       
       if (supabaseMatch) {
-        // Use Supabase data (has live status, scores, lock state)
-        // But keep the JSON match ID for UI consistency
-        mergedFixtures.push({
-          ...dbFixtureToFixture(supabaseMatch),
-          // Keep original JSON ID for component keys if needed
-        });
+        mergedFixtures.push(dbFixtureToFixture(supabaseMatch));
         usedSupabaseIds.add(supabaseMatch.id);
       } else {
-        // Use JSON data as fallback (pending match)
-        mergedFixtures.push(jsonMatchToFixture(match, roundData.round));
+        mergedFixtures.push(jsonMatchToFixture(match, roundData.round, 'A'));
       }
     });
   });
   
-  // Second pass: add any Supabase fixtures not in JSON (safety net)
-  supabaseFixtures.forEach(f => {
+  // Second pass: add any Apertura Supabase fixtures not in JSON
+  aperturaDbFixtures.forEach(f => {
     if (!usedSupabaseIds.has(f.id)) {
-      console.warn(`[mergeFixtures] Supabase fixture ${f.id} (${f.homeId} vs ${f.awayId}, round ${f.round}) not found in JSON`);
       mergedFixtures.push(dbFixtureToFixture(f));
     }
+  });
+  
+  // Add all Clausura fixtures from DB directly (no JSON fallback needed)
+  clausuraDbFixtures.forEach(f => {
+    mergedFixtures.push(dbFixtureToFixture(f));
   });
   
   return mergedFixtures;
@@ -143,29 +139,22 @@ const calculateTeamStats = (team: Team, fixtures: Fixture[], predictions: Map<st
     const isAway = fixture.awayId === team.id;
     if (!isHome && !isAway) return;
 
-    // Official results: FT matches count as played
     if (fixture.status === "FT" && fixture.homeScore !== null && fixture.awayScore !== null) {
       const tg = isHome ? fixture.homeScore : fixture.awayScore;
       const og = isHome ? fixture.awayScore : fixture.homeScore;
       played++; goalsFor += tg; goalsAgainst += og;
       if (tg > og) won++; else if (tg < og) lost++; else drawn++;
-      // Also add to predicted stats
       pPlayed++; pGoalsFor += tg; pGoalsAgainst += og;
       if (tg > og) pWon++; else if (tg < og) pLost++; else pDrawn++;
     }
-    
-    // LIVE matches: include in current standings
     else if (fixture.status === "LIVE" && fixture.homeScore !== null && fixture.awayScore !== null) {
       const tg = isHome ? fixture.homeScore : fixture.awayScore;
       const og = isHome ? fixture.awayScore : fixture.homeScore;
       played++; goalsFor += tg; goalsAgainst += og;
       if (tg > og) won++; else if (tg < og) lost++; else drawn++;
-      // Also add to predicted stats
       pPlayed++; pGoalsFor += tg; pGoalsAgainst += og;
       if (tg > og) pWon++; else if (tg < og) pLost++; else pDrawn++;
     }
-    
-    // Pending matches with predictions: only affect predicted stats
     else if (fixture.status === "NS") {
       const prediction = predictions.get(fixture.id);
       if (prediction && prediction.home !== null && prediction.away !== null) {
@@ -196,16 +185,44 @@ const sortTeams = (teams: TeamStats[], usePredictions: boolean): TeamStats[] => 
     const bGD = usePredictions ? b.predictedGoalDifference : b.goalDifference;
     const aGF = usePredictions ? a.predictedGoalsFor : a.goalsFor;
     const bGF = usePredictions ? b.predictedGoalsFor : b.goalsFor;
-    // 1. Points
     if (bP !== aP) return bP - aP;
-    // 2. Goal Difference
     if (bGD !== aGD) return bGD - aGD;
-    // 3. Goals For
     if (bGF !== aGF) return bGF - aGF;
-    // 4. Alphabetical
     return a.name.localeCompare(b.name);
   });
 };
+
+// Calculate stats for a set of fixtures
+const calculateStats = (fixtures: Fixture[], predictions: Map<string, { home: number | null; away: number | null }>) => {
+  let totalGoals = 0;
+  const roundsWithActivity = new Set<number>();
+  
+  fixtures.forEach((fixture) => {
+    if (fixture.status === "FT" && fixture.homeScore !== null && fixture.awayScore !== null) {
+      totalGoals += fixture.homeScore + fixture.awayScore;
+      roundsWithActivity.add(fixture.round);
+    } else if (fixture.status === "LIVE" && fixture.homeScore !== null && fixture.awayScore !== null) {
+      totalGoals += fixture.homeScore + fixture.awayScore;
+      roundsWithActivity.add(fixture.round);
+    } else if (fixture.status === "NS") {
+      const prediction = predictions.get(fixture.id);
+      if (prediction && prediction.home !== null && prediction.away !== null) {
+        totalGoals += prediction.home + prediction.away;
+        roundsWithActivity.add(fixture.round);
+      }
+    }
+  });
+  
+  const roundsPlayed = roundsWithActivity.size;
+  return { 
+    totalMatches: fixtures.length, 
+    roundsPlayed,
+    totalGoals, 
+    averageGoals: roundsPlayed > 0 ? (totalGoals / roundsPlayed).toFixed(2) : "0.00" 
+  };
+};
+
+export type TournamentTab = "A" | "C" | "ACC";
 
 export const useLiveLeagueEngine = () => {
   const { fixtures: supabaseFixtures, loading, error, refetch } = useFixtures();
@@ -214,17 +231,65 @@ export const useLiveLeagueEngine = () => {
   const allFixtures = useMemo(() => {
     return mergeFixtures(supabaseFixtures);
   }, [supabaseFixtures]);
+
+  // Split fixtures by tournament
+  const aperturaFixtures = useMemo(() => allFixtures.filter(f => f.tournament === 'A'), [allFixtures]);
+  const clausuraFixtures = useMemo(() => allFixtures.filter(f => f.tournament === 'C'), [allFixtures]);
   
   // Local predictions state (client-side only)
   const [predictions, setPredictions] = useState<Map<string, { home: number | null; away: number | null }>>(new Map());
-  const [currentRound, setCurrentRound] = useState(2);
+  const [activeTournament, setActiveTournament] = useState<TournamentTab>(() => {
+    // Auto-detect: if Apertura has no FT matches left (all 153 are FT), show Clausura
+    // Otherwise show Apertura
+    return 'A';
+  });
+  const [currentRoundA, setCurrentRoundA] = useState(2);
+  const [currentRoundC, setCurrentRoundC] = useState(1);
   const [showPredictions, setShowPredictions] = useState(true);
   const [fairPlayScores, setFairPlayScores] = useState<Record<string, number>>(() => 
     Object.fromEntries(initialTeams.map(t => [t.id, 0]))
   );
 
-  // Calculate team stats based on merged fixtures and predictions
-  const teams = useMemo(() => {
+  // Auto-detect active tournament
+  useMemo(() => {
+    const aperturaAllFT = aperturaFixtures.length > 0 && aperturaFixtures.every(f => f.status === 'FT');
+    const clausuraHasActivity = clausuraFixtures.some(f => f.status === 'FT' || f.status === 'LIVE');
+    
+    if (aperturaAllFT || clausuraHasActivity) {
+      // If Apertura is finished or Clausura has started, check which to show
+      if (aperturaAllFT && !clausuraFixtures.every(f => f.status === 'FT')) {
+        setActiveTournament('C');
+      }
+    }
+  }, [aperturaFixtures, clausuraFixtures]);
+
+  // Get fixtures for active tournament view
+  const getActiveFixtures = useCallback((tournament: TournamentTab) => {
+    if (tournament === 'A') return aperturaFixtures;
+    if (tournament === 'C') return clausuraFixtures;
+    return allFixtures; // Acumulada
+  }, [aperturaFixtures, clausuraFixtures, allFixtures]);
+
+  // Calculate team stats for each tournament
+  const aperturaTeams = useMemo(() => {
+    const stats = initialTeams.map((t) => ({ 
+      ...t, 
+      ...calculateTeamStats(t, aperturaFixtures, predictions),
+      fairPlay: fairPlayScores[t.id] || 0,
+    }));
+    return sortTeams(stats, showPredictions);
+  }, [aperturaFixtures, predictions, showPredictions, fairPlayScores]);
+
+  const clausuraTeams = useMemo(() => {
+    const stats = initialTeams.map((t) => ({ 
+      ...t, 
+      ...calculateTeamStats(t, clausuraFixtures, predictions),
+      fairPlay: fairPlayScores[t.id] || 0,
+    }));
+    return sortTeams(stats, showPredictions);
+  }, [clausuraFixtures, predictions, showPredictions, fairPlayScores]);
+
+  const acumuladaTeams = useMemo(() => {
     const stats = initialTeams.map((t) => ({ 
       ...t, 
       ...calculateTeamStats(t, allFixtures, predictions),
@@ -233,9 +298,27 @@ export const useLiveLeagueEngine = () => {
     return sortTeams(stats, showPredictions);
   }, [allFixtures, predictions, showPredictions, fairPlayScores]);
 
+  // Get teams for active tournament
+  const getTeamsByTournament = useCallback((tournament: TournamentTab) => {
+    if (tournament === 'A') return aperturaTeams;
+    if (tournament === 'C') return clausuraTeams;
+    return acumuladaTeams;
+  }, [aperturaTeams, clausuraTeams, acumuladaTeams]);
+
+  // Current round per tournament
+  const currentRound = activeTournament === 'C' ? currentRoundC : currentRoundA;
+  const setCurrentRound = useCallback((round: number) => {
+    if (activeTournament === 'C') setCurrentRoundC(round);
+    else setCurrentRoundA(round);
+  }, [activeTournament]);
+
+  // Active teams = based on active tournament
+  const teams = getTeamsByTournament(activeTournament);
+
   // Convert fixtures to Match format for FixtureView compatibility
   const getMatchesByRound = useCallback((round: number): Match[] => {
-    return allFixtures
+    const fixtures = getActiveFixtures(activeTournament === 'ACC' ? 'A' : activeTournament);
+    return fixtures
       .filter(f => f.round === round)
       .map(f => {
         const prediction = predictions.get(f.id);
@@ -245,7 +328,7 @@ export const useLiveLeagueEngine = () => {
           awayPrediction: prediction?.away ?? null,
         };
       });
-  }, [allFixtures, predictions]);
+  }, [getActiveFixtures, activeTournament, predictions]);
 
   // Update prediction
   const updatePrediction = useCallback((matchId: string, homePrediction: number | null, awayPrediction: number | null) => {
@@ -270,59 +353,38 @@ export const useLiveLeagueEngine = () => {
     setFairPlayScores(Object.fromEntries(initialTeams.map(t => [t.id, 0])));
   }, []);
 
-  // Get team by ID
+  // Get team by ID (from active tournament)
   const getTeamById = useCallback((id: string) => teams.find((t) => t.id === id), [teams]);
 
   // Confirm result (no-op since results come from Supabase)
-  const confirmMatchResult = useCallback((_matchId: string, _homeScore: number, _awayScore: number) => {
-    // Results are managed by Supabase, this is a no-op for compatibility
-  }, []);
+  const confirmMatchResult = useCallback((_matchId: string, _homeScore: number, _awayScore: number) => {}, []);
 
-  // Calculate stats
-  const stats = useMemo(() => {
-    let totalGoals = 0;
-    const roundsWithActivity = new Set<number>();
-    
-    allFixtures.forEach((fixture) => {
-      // Count official results (FT)
-      if (fixture.status === "FT" && fixture.homeScore !== null && fixture.awayScore !== null) {
-        totalGoals += fixture.homeScore + fixture.awayScore;
-        roundsWithActivity.add(fixture.round);
-      }
-      // Count LIVE matches
-      else if (fixture.status === "LIVE" && fixture.homeScore !== null && fixture.awayScore !== null) {
-        totalGoals += fixture.homeScore + fixture.awayScore;
-        roundsWithActivity.add(fixture.round);
-      }
-      // Count predictions for pending matches
-      else if (fixture.status === "NS") {
-        const prediction = predictions.get(fixture.id);
-        if (prediction && prediction.home !== null && prediction.away !== null) {
-          totalGoals += prediction.home + prediction.away;
-          roundsWithActivity.add(fixture.round);
-        }
-      }
-    });
-    
-    const roundsPlayed = roundsWithActivity.size;
-    
-    return { 
-      totalMatches: 306, 
-      roundsPlayed,
-      totalGoals, 
-      averageGoals: roundsPlayed > 0 ? (totalGoals / roundsPlayed).toFixed(2) : "0.00" 
-    };
-  }, [allFixtures, predictions]);
+  // Stats for active tournament
+  const activeFixtures = getActiveFixtures(activeTournament);
+  const stats = useMemo(() => calculateStats(activeFixtures, predictions), [activeFixtures, predictions]);
+
+  // Stats per tournament (for tabs)
+  const aperturaStats = useMemo(() => calculateStats(aperturaFixtures, predictions), [aperturaFixtures, predictions]);
+  const clausuraStats = useMemo(() => calculateStats(clausuraFixtures, predictions), [clausuraFixtures, predictions]);
+  const acumuladaStats = useMemo(() => calculateStats(allFixtures, predictions), [allFixtures, predictions]);
+
+  const getStatsByTournament = useCallback((tournament: TournamentTab) => {
+    if (tournament === 'A') return aperturaStats;
+    if (tournament === 'C') return clausuraStats;
+    return acumuladaStats;
+  }, [aperturaStats, clausuraStats, acumuladaStats]);
 
   return {
     fixtures: allFixtures,
     teams,
     currentRound,
-    totalRounds: fixtureData.totalRounds,
+    totalRounds: 17,
     showPredictions,
     stats,
     loading,
     error,
+    activeTournament,
+    setActiveTournament,
     setCurrentRound,
     setShowPredictions,
     updatePrediction,
@@ -330,6 +392,8 @@ export const useLiveLeagueEngine = () => {
     resetPredictions,
     getTeamById,
     getMatchesByRound,
+    getTeamsByTournament,
+    getStatsByTournament,
     updateFairPlay,
     resetFairPlay,
     refetch,

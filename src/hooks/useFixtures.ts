@@ -44,9 +44,10 @@ const mapDbToFixture = (db: DbFixture): Fixture => ({
   awayId: db.away_id,
   homeScore: db.home_score,
   awayScore: db.away_score,
-  status: db.status,
+  status: db.status as MatchStatus,
   isLocked: db.is_locked,
   kickOff: db.kick_off,
+  tournament: (db.tournament || 'A') as TournamentType,
   homePrediction: null,
   awayPrediction: null,
 });
