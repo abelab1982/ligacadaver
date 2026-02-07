@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 export type MatchStatus = "NS" | "LIVE" | "FT";
+export type TournamentType = "A" | "C";
 
 export interface DbFixture {
   id: string;
@@ -15,6 +16,7 @@ export interface DbFixture {
   is_locked: boolean;
   kick_off: string | null;
   api_fixture_id: number | null;
+  tournament: string;
   created_at: string;
   updated_at: string;
 }
@@ -29,6 +31,7 @@ export interface Fixture {
   status: MatchStatus;
   isLocked: boolean;
   kickOff: string | null;
+  tournament: TournamentType;
   // Local prediction (not saved to DB for now)
   homePrediction: number | null;
   awayPrediction: number | null;
