@@ -87,6 +87,7 @@ export type Database = {
           kick_off: string | null
           round: number
           status: string
+          tournament: string
           updated_at: string
         }
         Insert: {
@@ -101,6 +102,7 @@ export type Database = {
           kick_off?: string | null
           round: number
           status?: string
+          tournament?: string
           updated_at?: string
         }
         Update: {
@@ -115,6 +117,7 @@ export type Database = {
           kick_off?: string | null
           round?: number
           status?: string
+          tournament?: string
           updated_at?: string
         }
         Relationships: [
