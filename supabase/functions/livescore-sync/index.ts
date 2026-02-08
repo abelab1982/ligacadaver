@@ -89,12 +89,12 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Step 1: Query candidate fixtures from database
-    // Only fixtures that:
-    // - Are NOT finished (status != 'FT')
-    // - Have kick_off within the time window (-2h to +6h from now)
+    // Two queries:
+    // A) Normal window: NOT finished, kick_off within -2h to +6h
+    // B) Rescue sweep: Any fixture stuck as LIVE (regardless of time window)
     log("Querying candidate fixtures from database...");
     
-    const { data: candidates, error: queryError } = await supabase
+    const { data: windowCandidates, error: windowError } = await supabase
       .from("fixtures")
       .select("id, api_fixture_id, status, home_score, away_score")
       .neq("status", "FT")
@@ -103,13 +103,37 @@ Deno.serve(async (req) => {
       .gte("kick_off", new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString())
       .lte("kick_off", new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString());
 
-    if (queryError) {
-      log(`ERROR querying candidates: ${queryError.message}`);
-      throw queryError;
+    if (windowError) {
+      log(`ERROR querying window candidates: ${windowError.message}`);
+      throw windowError;
     }
 
-    const candidateFixtures = (candidates || []) as CandidateFixture[];
-    log(`Found ${candidateFixtures.length} candidate fixture(s)`);
+    // Rescue sweep: catch LIVE fixtures that fell outside the normal window
+    const { data: rescueCandidates, error: rescueError } = await supabase
+      .from("fixtures")
+      .select("id, api_fixture_id, status, home_score, away_score")
+      .eq("status", "LIVE")
+      .not("api_fixture_id", "is", null);
+
+    if (rescueError) {
+      log(`ERROR querying rescue candidates: ${rescueError.message}`);
+      throw rescueError;
+    }
+
+    // Merge and deduplicate by id
+    const allCandidatesMap = new Map<string, CandidateFixture>();
+    for (const c of (windowCandidates || []) as CandidateFixture[]) {
+      allCandidatesMap.set(c.id, c);
+    }
+    for (const c of (rescueCandidates || []) as CandidateFixture[]) {
+      allCandidatesMap.set(c.id, c);
+    }
+    const candidateFixtures = Array.from(allCandidatesMap.values());
+
+    const rescueCount = (rescueCandidates || []).filter(
+      (r: CandidateFixture) => !windowCandidates?.some((w: CandidateFixture) => w.id === r.id)
+    ).length;
+    log(`Found ${candidateFixtures.length} candidate fixture(s) (${rescueCount} from rescue sweep)`);
 
     // Step 2: If no candidates, exit early without calling API
     if (candidateFixtures.length === 0) {
