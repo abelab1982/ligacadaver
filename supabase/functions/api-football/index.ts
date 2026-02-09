@@ -353,6 +353,7 @@ async function setDbCache(
 
 const ALLOWED_ENDPOINTS = [
   '/fixtures',
+  '/fixtures/lineups',
   '/teams',
   '/standings',
   '/players/squads',
