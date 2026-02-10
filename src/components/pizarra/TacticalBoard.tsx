@@ -268,7 +268,7 @@ export const TacticalBoard = () => {
             <FootballPitch>
               {players.map((player, i) => (
                 <PlayerToken
-                  key={player.id}
+                  key={`${player.id}-${player.x.toFixed(2)}-${player.y.toFixed(2)}`}
                   name={player.name}
                   number={player.number}
                   role={player.role}
