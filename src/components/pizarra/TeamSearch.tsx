@@ -44,7 +44,7 @@ export const TeamSearch = ({ onLineupLoaded }: TeamSearchProps) => {
     try {
       // Step 1: Get the team's latest/next fixture
       const fixturesRes = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api-football/fixtures?team=${team.apiTeamId}&season=2025&league=281&last=1`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api-football/fixtures?team=${team.apiTeamId}&season=2026&league=281&last=1`,
         {
           headers: {
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
