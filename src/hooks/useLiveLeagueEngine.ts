@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { Team, initialTeams } from "@/data/teams";
 import { useFixtures, Fixture, MatchStatus, TournamentType } from "./useFixtures";
 import fixtureData from "@/data/fixture.json";
@@ -284,12 +284,11 @@ export const useLiveLeagueEngine = () => {
   );
 
   // Auto-detect active tournament
-  useMemo(() => {
+  useEffect(() => {
     const aperturaAllFT = aperturaFixtures.length > 0 && aperturaFixtures.every(f => f.status === 'FT');
     const clausuraHasActivity = clausuraFixtures.some(f => f.status === 'FT' || f.status === 'LIVE');
     
     if (aperturaAllFT || clausuraHasActivity) {
-      // If Apertura is finished or Clausura has started, check which to show
       if (aperturaAllFT && !clausuraFixtures.every(f => f.status === 'FT')) {
         setActiveTournament('C');
       }
