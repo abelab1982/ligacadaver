@@ -63,7 +63,8 @@ const CACHE_TTL_MS: Record<string, number> = {
   '/countries': 30 * 24 * 60 * 60 * 1000, // 30 days
   '/venues': 7 * 24 * 60 * 60 * 1000,     // 7 days
   '/coaches': 24 * 60 * 60 * 1000,        // 24 hours
-  '/players/squads': 24 * 60 * 60 * 1000, // 24 hours
+  '/players/squads': 7 * 24 * 60 * 60 * 1000, // 7 days
+  '/fixtures/lineups': 7 * 24 * 60 * 60 * 1000, // 7 days
   '/headtohead': 24 * 60 * 60 * 1000,     // 24 hours
   '/predictions': 6 * 60 * 60 * 1000,     // 6 hours
   '/odds': 15 * 60 * 1000,                // 15 minutes
