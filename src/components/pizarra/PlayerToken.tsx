@@ -79,16 +79,16 @@ export const PlayerToken = ({
           {number ?? "?"}
         </span>
       </div>
-      {/* Tiny name label */}
+      {/* Name plate */}
       <div
-        className="mt-0.5 px-1 py-px rounded-sm max-w-[48px] overflow-hidden"
+        className="mt-0.5 px-1.5 py-px rounded-sm max-w-[56px] md:max-w-[64px] overflow-hidden"
         style={{
-          background: "rgba(0,0,0,0.65)",
+          background: "rgba(0,0,0,0.7)",
           backdropFilter: "blur(4px)",
         }}
       >
-        <span className="text-[7px] md:text-[8px] font-medium text-white/80 leading-tight text-center whitespace-nowrap block truncate">
-          {name.length > 6 ? name.substring(0, 5) + "…" : name}
+        <span className="text-[9px] md:text-[11px] font-semibold text-white leading-tight text-center whitespace-nowrap block truncate">
+          {name.length > 8 ? name.substring(0, 7) + "…" : name}
         </span>
       </div>
     </motion.div>
