@@ -18,8 +18,14 @@ export interface LineupPlayer {
   grid: string | null;
 }
 
+export interface BenchPlayer {
+  name: string;
+  number: number;
+  pos: string;
+}
+
 interface TeamSearchProps {
-  onLineupLoaded: (players: LineupPlayer[], teamName: string) => void;
+  onLineupLoaded: (players: LineupPlayer[], teamName: string, bench: BenchPlayer[], formation: string | null) => void;
 }
 
 export const TeamSearch = ({ onLineupLoaded }: TeamSearchProps) => {
@@ -36,8 +42,9 @@ export const TeamSearch = ({ onLineupLoaded }: TeamSearchProps) => {
     setError(null);
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api-football/fixtures/lineups?team=${team.apiTeamId}&season=2026&league=281`,
+      // Step 1: Get the team's latest/next fixture
+      const fixturesRes = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api-football/fixtures?team=${team.apiTeamId}&season=2025&league=281&last=1`,
         {
           headers: {
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
@@ -46,25 +53,76 @@ export const TeamSearch = ({ onLineupLoaded }: TeamSearchProps) => {
         }
       );
 
-      if (!response.ok) {
-        throw new Error("No se pudieron cargar las alineaciones");
+      if (!fixturesRes.ok) throw new Error("No se pudo obtener el fixture");
+
+      const fixturesData = await fixturesRes.json();
+      
+      if (!fixturesData.success || !fixturesData.data || fixturesData.data.length === 0) {
+        throw new Error("No hay partidos disponibles para este equipo");
       }
 
-      const result = await response.json();
+      const fixtureId = fixturesData.data[0]?.fixture?.id;
+      if (!fixtureId) throw new Error("No se encontró el ID del partido");
+
+      // Step 2: Fetch lineups using the fixture ID
+      const lineupsRes = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api-football/fixtures/lineups?fixture=${fixtureId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!lineupsRes.ok) throw new Error("No se pudieron cargar las alineaciones");
+
+      const result = await lineupsRes.json();
 
       if (!result.success || !result.data || result.data.length === 0) {
-        throw new Error("No hay alineaciones disponibles para este equipo");
+        // Fallback: try to load squad instead
+        const squadRes = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api-football/players/squads?team=${team.apiTeamId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (!squadRes.ok) throw new Error("No hay alineaciones ni plantilla disponibles");
+
+        const squadData = await squadRes.json();
+        if (!squadData.success || !squadData.data || squadData.data.length === 0) {
+          throw new Error("No hay datos de plantilla disponibles");
+        }
+
+        const squadPlayers = squadData.data[0]?.players || [];
+        const starters: LineupPlayer[] = squadPlayers.slice(0, 11).map((p: any) => ({
+          name: p.name || "Jugador",
+          number: p.number || 0,
+          pos: p.position?.[0] || "M",
+          grid: null,
+        }));
+        const bench: BenchPlayer[] = squadPlayers.slice(11).map((p: any) => ({
+          name: p.name || "Jugador",
+          number: p.number || 0,
+          pos: p.position?.[0] || "M",
+        }));
+
+        onLineupLoaded(starters, team.name, bench, null);
+        return;
       }
 
-      // Get the latest lineup
-      const latestLineup = result.data[0];
-      const teamLineup = latestLineup.team?.id === team.apiTeamId
-        ? latestLineup
-        : result.data.find((l: any) => l.team?.id === team.apiTeamId);
+      // Find the team's lineup
+      const teamLineup = result.data.find((l: any) => l.team?.id === team.apiTeamId) || result.data[0];
 
       if (!teamLineup || !teamLineup.startXI) {
         throw new Error("No se encontró la alineación del equipo");
       }
+
+      const formation = teamLineup.formation || null;
 
       const players: LineupPlayer[] = teamLineup.startXI.map((entry: any) => ({
         name: entry.player?.name || "Jugador",
@@ -73,7 +131,13 @@ export const TeamSearch = ({ onLineupLoaded }: TeamSearchProps) => {
         grid: entry.player?.grid || null,
       }));
 
-      onLineupLoaded(players, team.name);
+      const bench: BenchPlayer[] = (teamLineup.substitutes || []).map((entry: any) => ({
+        name: entry.player?.name || "Suplente",
+        number: entry.player?.number || 0,
+        pos: entry.player?.pos || "M",
+      }));
+
+      onLineupLoaded(players, team.name, bench, formation);
     } catch (err: any) {
       setError(err.message || "Error al buscar alineación");
     } finally {
