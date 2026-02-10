@@ -29,11 +29,6 @@ export const PlayerToken = ({
   const dragControls = useDragControls();
   const tokenRef = useRef<HTMLDivElement>(null);
 
-  // Show last name only
-  const parts = name.split(" ");
-  const displayName = parts.length > 1 ? parts[parts.length - 1] : name;
-  const shortName = displayName.length > 8 ? displayName.substring(0, 7) + "…" : displayName;
-
   return (
     <motion.div
       ref={tokenRef}
@@ -65,12 +60,12 @@ export const PlayerToken = ({
       whileTap={{ scale: 1.1 }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
     >
-      {/* Jersey shape */}
+      {/* Jersey shape - number only */}
       <div
-        className={`relative w-9 h-9 md:w-11 md:h-11 rounded-lg flex items-center justify-center font-bold shadow-xl border-2 transition-all ${
+        className={`relative w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold shadow-xl border-2 transition-all ${
           isSelected
             ? "border-white ring-2 ring-white/60 scale-110"
-            : "border-white/20"
+            : "border-white/30"
         }`}
         style={{
           backgroundColor: color,
@@ -81,19 +76,19 @@ export const PlayerToken = ({
         }}
       >
         <span className="text-xs md:text-sm font-extrabold leading-none">
-          {number ?? role}
+          {number ?? "?"}
         </span>
       </div>
-      {/* Name plate */}
+      {/* Tiny name label */}
       <div
-        className="mt-0.5 px-1.5 py-px rounded-sm"
+        className="mt-0.5 px-1 py-px rounded-sm max-w-[48px] overflow-hidden"
         style={{
-          background: "rgba(0,0,0,0.7)",
+          background: "rgba(0,0,0,0.65)",
           backdropFilter: "blur(4px)",
         }}
       >
-        <span className="text-[8px] md:text-[10px] font-semibold text-white leading-tight text-center whitespace-nowrap">
-          {shortName}
+        <span className="text-[7px] md:text-[8px] font-medium text-white/80 leading-tight text-center whitespace-nowrap block truncate">
+          {name.length > 6 ? name.substring(0, 5) + "…" : name}
         </span>
       </div>
     </motion.div>
