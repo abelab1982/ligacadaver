@@ -10,6 +10,7 @@ import { RosterSidebar } from "./RosterSidebar";
 import { formations } from "./formations";
 import { useToast } from "@/hooks/use-toast";
 import { initialTeams } from "@/data/teams";
+import type { DrawingTool, DrawingColor, Stroke } from "./DrawingCanvas";
 
 interface PlayerState {
   id: string;
@@ -66,6 +67,12 @@ export const TacticalBoard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pitchRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
+  const strokesRef = useRef<Stroke[]>([]);
+  const [drawingTool, setDrawingTool] = useState<DrawingTool>("none");
+  const [drawingColor, setDrawingColor] = useState<DrawingColor>("#ffffff");
+  const [strokeCount, setStrokeCount] = useState(0);
+  const [undoSignal, setUndoSignal] = useState(0);
+  const [clearSignal, setClearSignal] = useState(0);
   const { toast } = useToast();
 
   const handleFormationChange = useCallback((key: string) => {
@@ -340,7 +347,27 @@ export const TacticalBoard = () => {
               onDragOver={(e) => e.preventDefault()}
               onDrop={handlePitchDrop}
             >
-              <FootballPitch>
+              <FootballPitch
+                drawingTool={drawingTool}
+                drawingColor={drawingColor}
+                strokeCount={strokeCount}
+                strokesRef={strokesRef}
+                undoSignal={undoSignal}
+                clearSignal={clearSignal}
+                onStrokeAdded={() => setStrokeCount(strokesRef.current.length)}
+                onToolChange={setDrawingTool}
+                onColorChange={setDrawingColor}
+                onUndo={() => {
+                  strokesRef.current.pop();
+                  setStrokeCount(strokesRef.current.length);
+                  setUndoSignal((n) => n + 1);
+                }}
+                onClear={() => {
+                  strokesRef.current.length = 0;
+                  setStrokeCount(0);
+                  setClearSignal((n) => n + 1);
+                }}
+              >
                 {players.map((player, i) => (
                   <PlayerToken
                     key={`${player.id}-${player.x.toFixed(2)}-${player.y.toFixed(2)}`}
