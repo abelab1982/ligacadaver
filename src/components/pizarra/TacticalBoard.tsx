@@ -6,9 +6,10 @@ import { FootballPitch } from "./FootballPitch";
 import { PlayerToken } from "./PlayerToken";
 import { FormationSelector } from "./FormationSelector";
 import { TeamSearch, type LineupPlayer, type BenchPlayer } from "./TeamSearch";
-import { BenchPanel } from "./BenchPanel";
+import { RosterSidebar } from "./RosterSidebar";
 import { formations } from "./formations";
 import { useToast } from "@/hooks/use-toast";
+import { initialTeams } from "@/data/teams";
 
 interface PlayerState {
   id: string;
@@ -47,7 +48,6 @@ function saveState(players: PlayerState[], formation: string) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ players, formation }));
 }
 
-// Parse formation string like "4-2-3-1" into a key
 function matchFormation(formationStr: string): string | null {
   const normalized = formationStr.replace(/\s/g, "");
   if (formations[normalized]) return normalized;
@@ -63,7 +63,7 @@ export const TacticalBoard = () => {
   const [teamName, setTeamName] = useState<string | null>(null);
   const [bench, setBench] = useState<BenchPlayer[]>([]);
   const [selectedPlayerIndex, setSelectedPlayerIndex] = useState<number | null>(null);
-  const [showBench, setShowBench] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const pitchRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -75,7 +75,6 @@ export const TacticalBoard = () => {
     setTeamName(null);
     setBench([]);
     setSelectedPlayerIndex(null);
-    setShowBench(false);
     saveState(newPlayers, key);
   }, []);
 
@@ -94,49 +93,130 @@ export const TacticalBoard = () => {
   const handlePlayerClick = useCallback((index: number) => {
     if (bench.length === 0) return;
     setSelectedPlayerIndex(index);
-    setShowBench(true);
+    setSidebarOpen(true);
   }, [bench]);
 
-  const handleBenchSelect = useCallback(
-    (benchIndex: number) => {
+  // Handle substitution from sidebar tap
+  const handleSidebarPlayerTap = useCallback(
+    (sidebarPlayer: { name: string; number: number; role: string }) => {
       if (selectedPlayerIndex === null) return;
-      const benchPlayer = bench[benchIndex];
+
+      const replacedPlayer = players[selectedPlayerIndex];
 
       setPlayers((prev) => {
         const updated = [...prev];
-        const old = updated[selectedPlayerIndex];
         updated[selectedPlayerIndex] = {
-          ...old,
-          name: benchPlayer.name.split(" ").pop() || benchPlayer.name,
-          number: benchPlayer.number,
-          role: benchPlayer.pos,
+          ...updated[selectedPlayerIndex],
+          name: sidebarPlayer.name.split(" ").pop() || sidebarPlayer.name,
+          number: sidebarPlayer.number,
+          role: sidebarPlayer.role,
         };
         saveState(updated, formation);
         return updated;
       });
 
-      // Move replaced player to bench
-      const replacedPlayer = players[selectedPlayerIndex];
+      // Swap into bench
       setBench((prev) => {
-        const newBench = [...prev];
-        newBench[benchIndex] = {
-          name: replacedPlayer.name,
-          number: replacedPlayer.number || 0,
-          pos: replacedPlayer.role,
-        };
-        return newBench;
+        const idx = prev.findIndex(
+          (p) => p.number === sidebarPlayer.number && p.name === sidebarPlayer.name
+        );
+        if (idx >= 0) {
+          const newBench = [...prev];
+          newBench[idx] = {
+            name: replacedPlayer.name,
+            number: replacedPlayer.number || 0,
+            pos: replacedPlayer.role,
+          };
+          return newBench;
+        }
+        return prev;
       });
 
       setSelectedPlayerIndex(null);
-      setShowBench(false);
-      toast({ title: `${benchPlayer.name.split(" ").pop()} entra al campo` });
+      toast({ title: `${sidebarPlayer.name.split(" ").pop()} entra al campo` });
     },
     [selectedPlayerIndex, formation, players, toast]
   );
 
+  // Handle drop from sidebar onto pitch
+  const handlePitchDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      const data = e.dataTransfer.getData("application/json");
+      if (!data || !pitchRef.current) return;
+
+      try {
+        const player = JSON.parse(data) as { name: string; number: number; role: string };
+        const rect = pitchRef.current.getBoundingClientRect();
+        const x = Math.max(5, Math.min(95, ((e.clientX - rect.left) / rect.width) * 100));
+        const y = Math.max(5, Math.min(95, ((e.clientY - rect.top) / rect.height) * 100));
+
+        // Check if this player is already on the pitch by number
+        const existingIdx = players.findIndex((p) => p.number === player.number && p.name === (player.name.split(" ").pop() || player.name));
+        if (existingIdx >= 0) {
+          // Move existing player to the drop position
+          setPlayers((prev) => {
+            const updated = [...prev];
+            updated[existingIdx] = { ...updated[existingIdx], x, y };
+            saveState(updated, formation);
+            return updated;
+          });
+          return;
+        }
+
+        // Replace the nearest player on pitch or add new
+        let nearestIdx = 0;
+        let nearestDist = Infinity;
+        players.forEach((p, i) => {
+          const dist = Math.hypot(p.x - x, p.y - y);
+          if (dist < nearestDist) {
+            nearestDist = dist;
+            nearestIdx = i;
+          }
+        });
+
+        const replacedPlayer = players[nearestIdx];
+        setPlayers((prev) => {
+          const updated = [...prev];
+          updated[nearestIdx] = {
+            ...updated[nearestIdx],
+            name: player.name.split(" ").pop() || player.name,
+            number: player.number,
+            role: player.role,
+            x,
+            y,
+          };
+          saveState(updated, formation);
+          return updated;
+        });
+
+        // Swap replaced player into bench
+        setBench((prev) => {
+          const idx = prev.findIndex(
+            (p) => p.number === player.number && p.name === player.name
+          );
+          if (idx >= 0) {
+            const newBench = [...prev];
+            newBench[idx] = {
+              name: replacedPlayer.name,
+              number: replacedPlayer.number || 0,
+              pos: replacedPlayer.role,
+            };
+            return newBench;
+          }
+          return prev;
+        });
+
+        toast({ title: `${player.name.split(" ").pop()} colocado en la cancha` });
+      } catch {
+        // ignore invalid data
+      }
+    },
+    [players, formation, toast]
+  );
+
   const handleLineupLoaded = useCallback(
     (lineup: LineupPlayer[], name: string, benchPlayers: BenchPlayer[], apiFormation: string | null) => {
-      // Auto-switch formation if API provides one
       let activeFormation = formation;
       if (apiFormation) {
         const matched = matchFormation(apiFormation);
@@ -181,7 +261,7 @@ export const TacticalBoard = () => {
       setTeamName(name);
       setBench(benchPlayers);
       setSelectedPlayerIndex(null);
-      setShowBench(false);
+      setSidebarOpen(true);
       saveState(newPlayers, activeFormation);
       toast({ title: `Alineación de ${name} cargada` });
     },
@@ -194,7 +274,7 @@ export const TacticalBoard = () => {
     setTeamName(null);
     setBench([]);
     setSelectedPlayerIndex(null);
-    setShowBench(false);
+    setSidebarOpen(false);
     saveState(newPlayers, formation);
   }, [formation]);
 
@@ -217,13 +297,12 @@ export const TacticalBoard = () => {
     }
   }, [formation, toast]);
 
-  // Get team primary color for tokens
   const teamColor = teamName
     ? initialTeams.find((t) => t.name === teamName)?.primaryColor || "hsl(45, 93%, 47%)"
     : "hsl(45, 93%, 47%)";
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       {/* Toolbar */}
       <div className="px-3 py-2 border-b border-border bg-card/50 flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1.5">
@@ -249,57 +328,51 @@ export const TacticalBoard = () => {
         </div>
       </div>
 
-      {/* Team name banner */}
-      {teamName && (
-        <div className="px-3 py-1 bg-primary/10 border-b border-primary/20 text-center">
-          <span className="text-xs font-semibold text-primary">{teamName}</span>
-          {bench.length > 0 && (
-            <span className="text-[10px] text-muted-foreground ml-2">
-              Toca un jugador para cambiarlo
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Pitch */}
-      <div className="flex-1 overflow-auto flex items-center justify-center p-3 md:p-6">
-        <div ref={exportRef} className="relative w-full max-w-md md:max-w-lg">
-          <div ref={pitchRef as React.RefObject<HTMLDivElement>}>
-            <FootballPitch>
-              {players.map((player, i) => (
-                <PlayerToken
-                  key={`${player.id}-${player.x.toFixed(2)}-${player.y.toFixed(2)}`}
-                  name={player.name}
-                  number={player.number}
-                  role={player.role}
-                  x={player.x}
-                  y={player.y}
-                  color={teamColor}
-                  isSelected={selectedPlayerIndex === i}
-                  onDragEnd={(x, y) => handleDragEnd(i, x, y)}
-                  onClick={() => handlePlayerClick(i)}
-                  containerRef={pitchRef as React.RefObject<HTMLDivElement>}
-                />
-              ))}
-            </FootballPitch>
+      {/* Pitch + Sidebar */}
+      <div className="flex-1 overflow-hidden relative">
+        <div
+          className="h-full overflow-auto flex items-center justify-center p-3 md:p-6"
+          style={{ paddingRight: sidebarOpen ? "252px" : undefined }}
+        >
+          <div ref={exportRef} className="relative w-full max-w-md md:max-w-lg">
+            <div
+              ref={pitchRef as React.RefObject<HTMLDivElement>}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handlePitchDrop}
+            >
+              <FootballPitch>
+                {players.map((player, i) => (
+                  <PlayerToken
+                    key={`${player.id}-${player.x.toFixed(2)}-${player.y.toFixed(2)}`}
+                    name={player.name}
+                    number={player.number}
+                    role={player.role}
+                    x={player.x}
+                    y={player.y}
+                    color={teamColor}
+                    isSelected={selectedPlayerIndex === i}
+                    onDragEnd={(x, y) => handleDragEnd(i, x, y)}
+                    onClick={() => handlePlayerClick(i)}
+                    containerRef={pitchRef as React.RefObject<HTMLDivElement>}
+                  />
+                ))}
+              </FootballPitch>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Bench panel */}
-      <BenchPanel
-        players={bench}
-        isOpen={showBench}
-        selectedIndex={null}
-        onSelect={handleBenchSelect}
-        onClose={() => {
-          setShowBench(false);
-          setSelectedPlayerIndex(null);
-        }}
-      />
+        {/* Roster Sidebar */}
+        <RosterSidebar
+          starters={players.map((p) => ({ name: p.name, number: p.number, role: p.role }))}
+          bench={bench}
+          teamName={teamName}
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen((o) => !o)}
+          onDragStart={() => {}}
+          onPlayerTap={handleSidebarPlayerTap}
+          selectedPitchPlayerIndex={selectedPlayerIndex}
+        />
+      </div>
     </div>
   );
 };
-
-// Need this import for teamColor lookup
-import { initialTeams } from "@/data/teams";
