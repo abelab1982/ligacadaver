@@ -5,10 +5,12 @@ interface PlayerTokenProps {
   name: string;
   number?: number;
   role: string;
-  x: number; // percentage 0-100
-  y: number; // percentage 0-100
+  x: number;
+  y: number;
   color?: string;
+  isSelected?: boolean;
   onDragEnd: (x: number, y: number) => void;
+  onClick?: () => void;
   containerRef: React.RefObject<HTMLDivElement>;
 }
 
@@ -19,13 +21,18 @@ export const PlayerToken = ({
   x,
   y,
   color = "hsl(45, 93%, 47%)",
+  isSelected = false,
   onDragEnd,
+  onClick,
   containerRef,
 }: PlayerTokenProps) => {
   const dragControls = useDragControls();
   const tokenRef = useRef<HTMLDivElement>(null);
 
-  const displayName = name.length > 10 ? name.substring(0, 9) + "…" : name;
+  // Show last name only
+  const parts = name.split(" ");
+  const displayName = parts.length > 1 ? parts[parts.length - 1] : name;
+  const shortName = displayName.length > 8 ? displayName.substring(0, 7) + "…" : displayName;
 
   return (
     <motion.div
@@ -35,7 +42,7 @@ export const PlayerToken = ({
       dragMomentum={false}
       dragElastic={0}
       dragConstraints={containerRef}
-      onDragEnd={(_, info) => {
+      onDragEnd={() => {
         if (!containerRef.current || !tokenRef.current) return;
         const rect = containerRef.current.getBoundingClientRect();
         const tokenRect = tokenRef.current.getBoundingClientRect();
@@ -45,26 +52,50 @@ export const PlayerToken = ({
         const newY = Math.max(0, Math.min(100, (centerY / rect.height) * 100));
         onDragEnd(newX, newY);
       }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.();
+      }}
       className="absolute flex flex-col items-center cursor-grab active:cursor-grabbing z-10 touch-none"
       style={{
         left: `${x}%`,
         top: `${y}%`,
         transform: "translate(-50%, -50%)",
       }}
-      whileTap={{ scale: 1.15 }}
+      whileTap={{ scale: 1.1 }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
     >
-      {/* Circle */}
+      {/* Jersey shape */}
       <div
-        className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-xs md:text-sm font-bold shadow-lg border-2 border-white/30"
-        style={{ backgroundColor: color, color: "#111" }}
+        className={`relative w-9 h-9 md:w-11 md:h-11 rounded-lg flex items-center justify-center font-bold shadow-xl border-2 transition-all ${
+          isSelected
+            ? "border-white ring-2 ring-white/60 scale-110"
+            : "border-white/20"
+        }`}
+        style={{
+          backgroundColor: color,
+          color: "#111",
+          boxShadow: isSelected
+            ? "0 0 16px rgba(255,255,255,0.4), 0 4px 12px rgba(0,0,0,0.5)"
+            : "0 4px 12px rgba(0,0,0,0.5)",
+        }}
       >
-        {number ?? role}
+        <span className="text-xs md:text-sm font-extrabold leading-none">
+          {number ?? role}
+        </span>
       </div>
-      {/* Name label */}
-      <span className="mt-0.5 text-[9px] md:text-[10px] font-semibold text-white leading-tight text-center max-w-[60px] truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-        {displayName}
-      </span>
+      {/* Name plate */}
+      <div
+        className="mt-0.5 px-1.5 py-px rounded-sm"
+        style={{
+          background: "rgba(0,0,0,0.7)",
+          backdropFilter: "blur(4px)",
+        }}
+      >
+        <span className="text-[8px] md:text-[10px] font-semibold text-white leading-tight text-center whitespace-nowrap">
+          {shortName}
+        </span>
+      </div>
     </motion.div>
   );
 };

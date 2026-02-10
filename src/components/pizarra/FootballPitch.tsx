@@ -11,51 +11,57 @@ export const FootballPitch = ({ children }: FootballPitchProps) => {
         className="absolute inset-0 w-full h-full"
         preserveAspectRatio="xMidYMid meet"
       >
-        {/* Grass */}
-        <rect x="0" y="0" width="680" height="1050" rx="12" fill="#1a6b30" />
-        
-        {/* Grass stripes */}
-        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
-          <rect
-            key={i}
-            x="0"
-            y={i * 105}
-            width="680"
-            height="105"
-            fill={i % 2 === 0 ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)"}
-          />
-        ))}
+        {/* Dark premium base */}
+        <defs>
+          <linearGradient id="pitchGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#0d3320" />
+            <stop offset="50%" stopColor="#145a32" />
+            <stop offset="100%" stopColor="#0d3320" />
+          </linearGradient>
+          {/* Subtle grass texture stripes */}
+          <pattern id="grassStripes" patternUnits="userSpaceOnUse" width="680" height="105">
+            <rect width="680" height="52.5" fill="rgba(255,255,255,0.015)" />
+            <rect y="52.5" width="680" height="52.5" fill="rgba(0,0,0,0.015)" />
+          </pattern>
+        </defs>
 
-        {/* Outer boundary */}
-        <rect
-          x="30" y="30" width="620" height="990"
-          fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2.5"
-        />
+        <rect x="0" y="0" width="680" height="1050" rx="12" fill="url(#pitchGrad)" />
+        <rect x="0" y="0" width="680" height="1050" rx="12" fill="url(#grassStripes)" />
 
-        {/* Center line */}
-        <line x1="30" y1="525" x2="650" y2="525" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
+        {/* Lines - bright white with glow effect */}
+        <g stroke="rgba(255,255,255,0.75)" strokeWidth="2" fill="none">
+          {/* Outer boundary */}
+          <rect x="30" y="30" width="620" height="990" />
 
-        {/* Center circle */}
-        <circle cx="340" cy="525" r="91.5" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
-        <circle cx="340" cy="525" r="4" fill="rgba(255,255,255,0.6)" />
+          {/* Center line */}
+          <line x1="30" y1="525" x2="650" y2="525" />
 
-        {/* Top penalty area */}
-        <rect x="138" y="30" width="404" height="165" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
-        <rect x="220" y="30" width="240" height="55" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
-        <circle cx="340" cy="147" r="4" fill="rgba(255,255,255,0.6)" />
-        <path d="M 268 195 A 91.5 91.5 0 0 0 412 195" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
+          {/* Center circle */}
+          <circle cx="340" cy="525" r="91.5" />
+          <circle cx="340" cy="525" r="4" fill="rgba(255,255,255,0.75)" />
 
-        {/* Bottom penalty area */}
-        <rect x="138" y="855" width="404" height="165" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
-        <rect x="220" y="965" width="240" height="55" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
-        <circle cx="340" cy="903" r="4" fill="rgba(255,255,255,0.6)" />
-        <path d="M 268 855 A 91.5 91.5 0 0 1 412 855" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
+          {/* Top penalty area */}
+          <rect x="138" y="30" width="404" height="165" />
+          <rect x="220" y="30" width="240" height="55" />
+          <circle cx="340" cy="147" r="4" fill="rgba(255,255,255,0.75)" />
+          <path d="M 268 195 A 91.5 91.5 0 0 0 412 195" />
 
-        {/* Corner arcs */}
-        <path d="M 30 42 A 12 12 0 0 0 42 30" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
-        <path d="M 638 30 A 12 12 0 0 0 650 42" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
-        <path d="M 30 1008 A 12 12 0 0 1 42 1020" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
-        <path d="M 638 1020 A 12 12 0 0 1 650 1008" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
+          {/* Bottom penalty area */}
+          <rect x="138" y="855" width="404" height="165" />
+          <rect x="220" y="965" width="240" height="55" />
+          <circle cx="340" cy="903" r="4" fill="rgba(255,255,255,0.75)" />
+          <path d="M 268 855 A 91.5 91.5 0 0 1 412 855" />
+
+          {/* Corner arcs */}
+          <path d="M 30 42 A 12 12 0 0 0 42 30" />
+          <path d="M 638 30 A 12 12 0 0 0 650 42" />
+          <path d="M 30 1008 A 12 12 0 0 1 42 1020" />
+          <path d="M 638 1020 A 12 12 0 0 1 650 1008" />
+        </g>
+
+        {/* Goal areas glow */}
+        <rect x="270" y="20" width="140" height="12" rx="2" fill="rgba(255,255,255,0.08)" />
+        <rect x="270" y="1018" width="140" height="12" rx="2" fill="rgba(255,255,255,0.08)" />
       </svg>
 
       {/* Player tokens overlay */}
