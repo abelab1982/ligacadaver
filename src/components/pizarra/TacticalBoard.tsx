@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { Download, RotateCcw, Layout } from "lucide-react";
+import { Download, RotateCcw, Layout, Eraser } from "lucide-react";
 import { toPng } from "html-to-image";
 import { Button } from "@/components/ui/button";
 import { FootballPitch } from "./FootballPitch";
@@ -285,6 +285,27 @@ export const TacticalBoard = () => {
     saveState(newPlayers, formation);
   }, [formation]);
 
+  const handleClearPitch = useCallback(() => {
+    // Move all current players to bench, clear the pitch
+    const allToBench = players
+      .filter((p) => p.number != null)
+      .map((p) => ({
+        name: p.name,
+        number: p.number || 0,
+        pos: p.role,
+      }));
+    setBench((prev) => [...allToBench, ...prev]);
+    setPlayers([]);
+    setSelectedPlayerIndex(null);
+    setSidebarOpen(true);
+    saveState([], formation);
+    // Clear drawings too
+    strokesRef.current.length = 0;
+    setStrokeCount(0);
+    setClearSignal((n) => n + 1);
+    toast({ title: "Pizarra limpia" });
+  }, [players, formation, toast]);
+
   const handleExport = useCallback(async () => {
     const node = exportRef.current;
     if (!node) return;
@@ -324,6 +345,10 @@ export const TacticalBoard = () => {
         <TeamSearch onLineupLoaded={handleLineupLoaded} />
 
         <div className="ml-auto flex items-center gap-1.5">
+          <Button size="sm" variant="ghost" className="h-8 text-xs gap-1" onClick={handleClearPitch} title="Limpiar pizarra">
+            <Eraser className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Limpiar</span>
+          </Button>
           <Button size="sm" variant="ghost" className="h-8 text-xs gap-1" onClick={handleReset}>
             <RotateCcw className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Reset</span>
