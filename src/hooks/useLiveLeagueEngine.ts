@@ -243,8 +243,41 @@ export const useLiveLeagueEngine = () => {
     // Otherwise show Apertura
     return 'A';
   });
-  const [currentRoundA, setCurrentRoundA] = useState(2);
-  const [currentRoundC, setCurrentRoundC] = useState(1);
+  // Auto-detect current round: first round with at least one non-FT match
+  // After Monday, advance to next round (all matches of previous round should be FT by then)
+  const autoDetectedRoundA = useMemo(() => {
+    const rounds = new Map<number, { total: number; finished: number }>();
+    aperturaFixtures.forEach((f) => {
+      const entry = rounds.get(f.round) || { total: 0, finished: 0 };
+      entry.total++;
+      if (f.status === "FT") entry.finished++;
+      rounds.set(f.round, entry);
+    });
+    // Find the first round that is not fully finished
+    for (let r = 1; r <= 17; r++) {
+      const entry = rounds.get(r);
+      if (!entry || entry.finished < entry.total) return r;
+    }
+    return 17;
+  }, [aperturaFixtures]);
+
+  const autoDetectedRoundC = useMemo(() => {
+    const rounds = new Map<number, { total: number; finished: number }>();
+    clausuraFixtures.forEach((f) => {
+      const entry = rounds.get(f.round) || { total: 0, finished: 0 };
+      entry.total++;
+      if (f.status === "FT") entry.finished++;
+      rounds.set(f.round, entry);
+    });
+    for (let r = 1; r <= 17; r++) {
+      const entry = rounds.get(r);
+      if (!entry || entry.finished < entry.total) return r;
+    }
+    return 17;
+  }, [clausuraFixtures]);
+
+  const [currentRoundA, setCurrentRoundA] = useState<number | null>(null);
+  const [currentRoundC, setCurrentRoundC] = useState<number | null>(null);
   const [showPredictions, setShowPredictions] = useState(true);
   const [fairPlayScores, setFairPlayScores] = useState<Record<string, number>>(() => 
     Object.fromEntries(initialTeams.map(t => [t.id, 0]))
@@ -305,8 +338,10 @@ export const useLiveLeagueEngine = () => {
     return acumuladaTeams;
   }, [aperturaTeams, clausuraTeams, acumuladaTeams]);
 
-  // Current round per tournament
-  const currentRound = activeTournament === 'C' ? currentRoundC : currentRoundA;
+  // Current round per tournament (use auto-detected if user hasn't manually changed)
+  const currentRound = activeTournament === 'C'
+    ? (currentRoundC ?? autoDetectedRoundC)
+    : (currentRoundA ?? autoDetectedRoundA);
   const setCurrentRound = useCallback((round: number) => {
     if (activeTournament === 'C') setCurrentRoundC(round);
     else setCurrentRoundA(round);
