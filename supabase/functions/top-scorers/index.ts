@@ -71,58 +71,29 @@ Deno.serve(async (req) => {
 
     const headers = { "x-apisports-key": apiKey };
 
-    // Strategy: Use topscorers endpoint (gets top 20) 
-    // Then supplement with paginated /players to catch anyone missed
-    const scorersMap = new Map<number, PlayerRow>();
+    // Strategy: Use ONLY topscorers endpoint (1 API call, returns top 20)
+    const scorers: PlayerRow[] = [];
     const now = new Date().toISOString();
 
-    // 1. Fetch top scorers (fast, 1 API call)
     const topRes = await fetch(
       `https://v3.football.api-sports.io/players/topscorers?league=${LEAGUE_ID}&season=${SEASON}`,
       { headers }
     );
 
-    if (topRes.ok) {
-      const topData = await topRes.json();
-      for (const entry of topData.response ?? []) {
-        const row = parsePlayer(entry, now);
-        if (row && row.goals > 0) {
-          scorersMap.set(row.player_id, row);
-        }
-      }
-      console.log(`topscorers: ${scorersMap.size} players`);
+    if (!topRes.ok) {
+      throw new Error(`API returned ${topRes.status}`);
     }
 
-    // 2. Fetch paginated /players to find any additional scorers
-    let page = 1;
-    let totalPages = 1;
-    const MAX_PAGES = 10;
-
-    while (page <= totalPages && page <= MAX_PAGES) {
-      const pRes = await fetch(
-        `https://v3.football.api-sports.io/players?league=${LEAGUE_ID}&season=${SEASON}&page=${page}`,
-        { headers }
-      );
-
-      if (!pRes.ok) break;
-
-      const pData = await pRes.json();
-      if (page === 1) {
-        totalPages = pData.paging?.total ?? 1;
-        console.log(`/players total pages: ${totalPages}`);
+    const topData = await topRes.json();
+    for (const entry of topData.response ?? []) {
+      const row = parsePlayer(entry, now);
+      if (row && row.goals > 0) {
+        scorers.push(row);
       }
-
-      for (const entry of pData.response ?? []) {
-        const row = parsePlayer(entry, now);
-        if (row && row.goals > 0 && !scorersMap.has(row.player_id)) {
-          scorersMap.set(row.player_id, row);
-        }
-      }
-
-      page++;
     }
+    console.log(`topscorers: ${scorers.length} players (1 API call)`);
 
-    const allScorers = Array.from(scorersMap.values());
+    const allScorers = scorers;
     allScorers.sort((a, b) => b.goals - a.goals || b.assists - a.assists);
 
     console.log(`Total scorers found: ${allScorers.length}`);
@@ -149,7 +120,7 @@ Deno.serve(async (req) => {
       JSON.stringify({ 
         message: "Updated", 
         count: allScorers.length,
-        pages_fetched: Math.min(page - 1, MAX_PAGES),
+        api_calls: 1,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
