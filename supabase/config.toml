@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.admin-fixtures]
 verify_jwt = false
+
+[functions.top-scorers]
+verify_jwt = false

@@ -1,6 +1,6 @@
 import liga1Logo from "@/assets/liga1-logo.png";
 import { Link, useLocation } from "react-router-dom";
-import { PenTool } from "lucide-react";
+import { PenTool, Trophy } from "lucide-react";
 
 export const Header = () => {
   const location = useLocation();
@@ -22,6 +22,13 @@ export const Header = () => {
         </Link>
 
         <div className="flex items-center gap-3">
+          <Link
+            to="/goleadores"
+            className="flex items-center gap-1.5 text-xs md:text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+          >
+            <Trophy className="w-4 h-4" />
+            <span className="hidden sm:inline">Goleadores</span>
+          </Link>
           <Link
             to={isPizarra ? "/" : "/pizarra"}
             className="flex items-center gap-1.5 text-xs md:text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
