@@ -11,6 +11,7 @@ import LoginPage from "./pages/Login";
 import RegisterPage from "./pages/Register";
 import AdminPage from "./pages/Admin";
 import PizarraPage from "./pages/Pizarra";
+import GoleadoresPage from "./pages/Goleadores";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/pizarra" element={<PizarraPage />} />
+            <Route path="/goleadores" element={<GoleadoresPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/registro" element={<RegisterPage />} />
             <Route path="/admin" element={<AdminPage />} />

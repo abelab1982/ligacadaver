@@ -215,6 +215,51 @@ export type Database = {
         }
         Relationships: []
       }
+      liga1_top_scorers: {
+        Row: {
+          assists: number
+          games_played: number
+          goals: number
+          id: number
+          last_updated: string
+          minutes_played: number
+          penalty_goals: number
+          player_id: number
+          player_name: string
+          player_photo: string | null
+          team_logo: string | null
+          team_name: string
+        }
+        Insert: {
+          assists?: number
+          games_played?: number
+          goals?: number
+          id?: number
+          last_updated?: string
+          minutes_played?: number
+          penalty_goals?: number
+          player_id: number
+          player_name: string
+          player_photo?: string | null
+          team_logo?: string | null
+          team_name: string
+        }
+        Update: {
+          assists?: number
+          games_played?: number
+          goals?: number
+          id?: number
+          last_updated?: string
+          minutes_played?: number
+          penalty_goals?: number
+          player_id?: number
+          player_name?: string
+          player_photo?: string | null
+          team_logo?: string | null
+          team_name?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
