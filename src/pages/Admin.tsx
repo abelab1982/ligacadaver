@@ -60,6 +60,7 @@ interface Fixture {
 }
 
 type FilterType = "all" | "no-api-id" | "ns-past-kickoff" | "live-no-score" | "locked";
+const TOTAL_ROUNDS = 17;
 
 export default function AdminPage() {
   const { user, isAdmin, loading: authLoading, signOut } = useAuth();
