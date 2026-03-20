@@ -60,6 +60,7 @@ interface Fixture {
 }
 
 type FilterType = "all" | "no-api-id" | "ns-past-kickoff" | "live-no-score" | "locked";
+const TOTAL_ROUNDS = 17;
 
 export default function AdminPage() {
   const { user, isAdmin, loading: authLoading, signOut } = useAuth();
@@ -69,6 +70,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [filter, setFilter] = useState<FilterType>("all");
+  const [roundFilter, setRoundFilter] = useState<number | "all">("all");
   
   // Edit dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -385,50 +387,80 @@ export default function AdminPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <Filter className="w-4 h-4" />
-              Filtros rápidos
+              Filtros
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant={filter === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setFilter("all")}
-              >
-                Todos ({fixtures.length})
-              </Button>
-              <Button
-                variant={filter === "no-api-id" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setFilter("no-api-id")}
-              >
-                <AlertCircle className="w-3 h-3 mr-1" />
-                Sin API ID
-              </Button>
-              <Button
-                variant={filter === "ns-past-kickoff" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setFilter("ns-past-kickoff")}
-              >
-                <Clock className="w-3 h-3 mr-1" />
-                NS con kickoff pasado
-              </Button>
-              <Button
-                variant={filter === "live-no-score" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setFilter("live-no-score")}
-              >
-                <Play className="w-3 h-3 mr-1" />
-                LIVE sin score
-              </Button>
-              <Button
-                variant={filter === "locked" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setFilter("locked")}
-              >
-                <Lock className="w-3 h-3 mr-1" />
-                Bloqueados
-              </Button>
+          <CardContent className="space-y-4">
+            {/* Round filter */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-2 block">Filtrar por Fecha</Label>
+              <div className="flex flex-wrap gap-1.5">
+                <Button
+                  variant={roundFilter === "all" ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 min-w-[3rem]"
+                  onClick={() => setRoundFilter("all")}
+                >
+                  Todas
+                </Button>
+                {Array.from({ length: TOTAL_ROUNDS }, (_, i) => i + 1).map((r) => (
+                  <Button
+                    key={r}
+                    variant={roundFilter === r ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 min-w-[2.5rem]"
+                    onClick={() => setRoundFilter(r)}
+                  >
+                    {r}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Status filters */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-2 block">Filtros rápidos</Label>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={filter === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilter("all")}
+                >
+                  Todos
+                </Button>
+                <Button
+                  variant={filter === "no-api-id" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilter("no-api-id")}
+                >
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  Sin API ID
+                </Button>
+                <Button
+                  variant={filter === "ns-past-kickoff" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilter("ns-past-kickoff")}
+                >
+                  <Clock className="w-3 h-3 mr-1" />
+                  NS con kickoff pasado
+                </Button>
+                <Button
+                  variant={filter === "live-no-score" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilter("live-no-score")}
+                >
+                  <Play className="w-3 h-3 mr-1" />
+                  LIVE sin score
+                </Button>
+                <Button
+                  variant={filter === "locked" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilter("locked")}
+                >
+                  <Lock className="w-3 h-3 mr-1" />
+                  Bloqueados
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -460,14 +492,16 @@ export default function AdminPage() {
                         <Loader2 className="w-6 h-6 animate-spin mx-auto" />
                       </TableCell>
                     </TableRow>
-                  ) : fixtures.length === 0 ? (
+                  ) : (() => {
+                    const filtered = roundFilter === "all" ? fixtures : fixtures.filter(f => f.round === roundFilter);
+                    return filtered.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                         No hay fixtures con este filtro
                       </TableCell>
                     </TableRow>
                   ) : (
-                    fixtures.map((fixture) => (
+                    filtered.map((fixture) => (
                       <TableRow key={fixture.id}>
                         <TableCell className="font-mono text-xs">{fixture.id}</TableCell>
                         <TableCell>{fixture.round}</TableCell>
@@ -523,7 +557,8 @@ export default function AdminPage() {
                         </TableCell>
                       </TableRow>
                     ))
-                  )}
+                  );
+                  })()}
                 </TableBody>
               </Table>
             </div>
