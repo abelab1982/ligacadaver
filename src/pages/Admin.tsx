@@ -70,6 +70,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [filter, setFilter] = useState<FilterType>("all");
+  const [roundFilter, setRoundFilter] = useState<number | "all">("all");
   
   // Edit dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
