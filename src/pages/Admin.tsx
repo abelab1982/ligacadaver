@@ -560,7 +560,6 @@ export default function AdminPage() {
                   );
                   })()}
                 </TableBody>
-                </TableBody>
               </Table>
             </div>
           </CardContent>
