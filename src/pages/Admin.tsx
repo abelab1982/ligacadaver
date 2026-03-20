@@ -557,7 +557,9 @@ export default function AdminPage() {
                         </TableCell>
                       </TableRow>
                     ))
-                  )}
+                  );
+                  })()}
+                </TableBody>
                 </TableBody>
               </Table>
             </div>
