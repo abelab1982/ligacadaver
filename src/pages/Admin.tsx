@@ -466,9 +466,9 @@ export default function AdminPage() {
         </Card>
 
         {/* Fixtures Table */}
-        <Card>
+        <Card className="mb-8">
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            <div className="overflow-auto max-h-[60vh]">
               <Table>
                 <TableHeader>
                   <TableRow>
