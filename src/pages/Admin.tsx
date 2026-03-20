@@ -492,14 +492,16 @@ export default function AdminPage() {
                         <Loader2 className="w-6 h-6 animate-spin mx-auto" />
                       </TableCell>
                     </TableRow>
-                  ) : fixtures.length === 0 ? (
+                  ) : (() => {
+                    const filtered = roundFilter === "all" ? fixtures : fixtures.filter(f => f.round === roundFilter);
+                    return filtered.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                         No hay fixtures con este filtro
                       </TableCell>
                     </TableRow>
                   ) : (
-                    fixtures.map((fixture) => (
+                    filtered.map((fixture) => (
                       <TableRow key={fixture.id}>
                         <TableCell className="font-mono text-xs">{fixture.id}</TableCell>
                         <TableCell>{fixture.round}</TableCell>
