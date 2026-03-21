@@ -126,13 +126,22 @@ export default function AdminPage() {
     }
   }, [user, filter, navigate]);
 
-  // Effect: Auth check
+  // Effect: Auth check with grace period for admin role
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (authLoading) return;
+    
+    if (!user) {
       navigate("/login");
-    } else if (!authLoading && user && !isAdmin) {
-      toast.error("Acceso denegado - Se requiere rol de administrador");
-      navigate("/");
+      return;
+    }
+    
+    if (!isAdmin) {
+      // Give time for the admin role check to complete
+      const timeout = setTimeout(() => {
+        toast.error("Acceso denegado - Se requiere rol de administrador");
+        navigate("/");
+      }, 2000);
+      return () => clearTimeout(timeout);
     }
   }, [authLoading, user, isAdmin, navigate]);
 

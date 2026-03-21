@@ -27,6 +27,8 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
+      // Wait for auth state + admin role check to propagate
+      await new Promise((resolve) => setTimeout(resolve, 600));
       navigate("/admin");
     }
   };
