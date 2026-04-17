@@ -238,7 +238,7 @@ export default function AdminPage() {
   const navigate = useNavigate();
   
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [currentRound, setCurrentRound] = useState(1);
@@ -279,6 +279,9 @@ export default function AdminPage() {
         return;
       }
 
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-fixtures`,
         {
@@ -286,8 +289,10 @@ export default function AdminPage() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
+          signal: controller.signal,
         }
       );
+      clearTimeout(timeout);
 
       const data = await response.json();
       
@@ -296,9 +301,13 @@ export default function AdminPage() {
       }
 
       setFixtures(data.fixtures || []);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error fetching fixtures:", error);
-      toast.error("Error al cargar fixtures");
+      if (error instanceof Error && error.name === "AbortError") {
+        toast.error("Timeout al cargar fixtures - intenta de nuevo");
+      } else {
+        toast.error("Error al cargar fixtures");
+      }
     } finally {
       setLoading(false);
     }
