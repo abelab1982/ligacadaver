@@ -25,8 +25,6 @@ import {
   CheckCircle,
   LogOut,
   Save,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -476,43 +474,25 @@ export default function AdminPage() {
 
       {/* Round Navigation */}
       <div className="sticky top-[52px] z-10 bg-background/95 backdrop-blur border-b border-border px-3 py-2">
-        <div className="max-w-2xl mx-auto">
-          {/* Round selector pills */}
-          <div className="flex items-center justify-between mb-2">
-            <Button variant="ghost" size="icon" className="w-7 h-7" onClick={() => setCurrentRound(Math.max(1, currentRound - 1))} disabled={currentRound === 1}>
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <div className="text-center">
-              <h2 className="font-bold text-base">Fecha {currentRound}</h2>
-              <div className="flex gap-2 text-[10px] text-muted-foreground justify-center">
-                {roundStats.finished > 0 && <span className="text-green-400">{roundStats.finished} finalizados</span>}
-                {roundStats.live > 0 && <span className="text-red-400">{roundStats.live} en vivo</span>}
-                {roundStats.pending > 0 && <span>{roundStats.pending} pendientes</span>}
-              </div>
-            </div>
-            <Button variant="ghost" size="icon" className="w-7 h-7" onClick={() => setCurrentRound(Math.min(TOTAL_ROUNDS, currentRound + 1))} disabled={currentRound === TOTAL_ROUNDS}>
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
-          
-          {/* Round pills */}
-          <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
+        <div className="max-w-2xl mx-auto flex items-center gap-3">
+          <select
+            value={currentRound}
+            onChange={(e) => setCurrentRound(Number(e.target.value))}
+            className="bg-background border border-border rounded-md px-3 py-1.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary"
+          >
             {Array.from({ length: TOTAL_ROUNDS }, (_, i) => i + 1).map((r) => {
               const rFixtures = fixtures.filter(f => f.round === r);
               const allFT = rFixtures.length > 0 && rFixtures.every(f => f.status === "FT");
               const hasLive = rFixtures.some(f => f.status === "LIVE");
-              return (
-                <Button
-                  key={r}
-                  variant={currentRound === r ? "default" : "outline"}
-                  size="sm"
-                  className={`h-6 min-w-[2rem] text-xs shrink-0 ${allFT ? "opacity-50" : ""} ${hasLive ? "border-red-500 text-red-400" : ""}`}
-                  onClick={() => setCurrentRound(r)}
-                >
-                  {r}
-                </Button>
-              );
+              const ftCount = rFixtures.filter(f => f.status === "FT").length;
+              const label = `Fecha ${r}${allFT ? " \u2713" : hasLive ? " \u25CF EN VIVO" : ftCount > 0 ? ` (${ftCount}/${rFixtures.length})` : ""}`;
+              return <option key={r} value={r}>{label}</option>;
             })}
+          </select>
+          <div className="flex gap-2 text-xs text-muted-foreground">
+            {roundStats.finished > 0 && <span className="text-green-400">{roundStats.finished} finalizados</span>}
+            {roundStats.live > 0 && <span className="text-red-400">{roundStats.live} en vivo</span>}
+            {roundStats.pending > 0 && <span>{roundStats.pending} pendientes</span>}
           </div>
         </div>
       </div>
