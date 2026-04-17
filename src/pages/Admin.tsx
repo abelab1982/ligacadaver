@@ -242,6 +242,8 @@ export default function AdminPage() {
   const [syncing, setSyncing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [currentRound, setCurrentRound] = useState(1);
+  const [defaultFrontRound, setDefaultFrontRound] = useState<number | null>(null);
+  const [savingDefault, setSavingDefault] = useState(false);
 
   // Auto-detect first incomplete round
   useEffect(() => {
@@ -301,6 +303,14 @@ export default function AdminPage() {
       }
 
       setFixtures(data.fixtures || []);
+      
+      // Fetch current default round setting
+      const { data: settingData } = await supabase
+        .from("app_secrets")
+        .select("value")
+        .eq("key", "DEFAULT_ROUND_A")
+        .maybeSingle();
+      if (settingData) setDefaultFrontRound(Number(settingData.value));
     } catch (error: unknown) {
       console.error("Error fetching fixtures:", error);
       if (error instanceof Error && error.name === "AbortError") {
@@ -503,6 +513,29 @@ export default function AdminPage() {
             {roundStats.live > 0 && <span className="text-red-400">{roundStats.live} en vivo</span>}
             {roundStats.pending > 0 && <span>{roundStats.pending} pendientes</span>}
           </div>
+        </div>
+      </div>
+
+      {/* Default Round Control */}
+      <div className="max-w-2xl mx-auto px-3 pt-2">
+        <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 text-xs">
+          <span className="text-muted-foreground whitespace-nowrap">Fecha visible en el front:</span>
+          <select
+            value={defaultFrontRound ?? ""}
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              saveDefaultRound(val);
+            }}
+            disabled={savingDefault}
+            className="bg-background border border-border rounded px-2 py-1 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="" disabled>Seleccionar...</option>
+            {Array.from({ length: TOTAL_ROUNDS }, (_, i) => i + 1).map((r) => (
+              <option key={r} value={r}>Fecha {r}</option>
+            ))}
+          </select>
+          {savingDefault && <Loader2 className="w-3 h-3 animate-spin" />}
+          {defaultFrontRound && <span className="text-green-400">Fecha {defaultFrontRound} activa</span>}
         </div>
       </div>
 

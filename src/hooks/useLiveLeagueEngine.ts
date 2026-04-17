@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { Team, initialTeams } from "@/data/teams";
 import { useFixtures, Fixture, MatchStatus, TournamentType } from "./useFixtures";
 import fixtureData from "@/data/fixture.json";
+import { supabase } from "@/integrations/supabase/client";
 
 export type LegacyMatchStatus = "played" | "pending";
 
@@ -238,6 +239,7 @@ export const useLiveLeagueEngine = () => {
   
   // Local predictions state (client-side only)
   const [predictions, setPredictions] = useState<Map<string, { home: number | null; away: number | null }>>(new Map());
+  const [adminDefaultRoundA, setAdminDefaultRoundA] = useState<number | null>(null);
   const [activeTournament, setActiveTournament] = useState<TournamentTab>(() => {
     // Auto-detect: if Apertura has no FT matches left (all 153 are FT), show Clausura
     // Otherwise show Apertura
@@ -309,6 +311,18 @@ export const useLiveLeagueEngine = () => {
     }
   }, [aperturaFixtures, clausuraFixtures]);
 
+  // Fetch admin-configured default round
+  useEffect(() => {
+    supabase
+      .from("app_secrets")
+      .select("value")
+      .eq("key", "DEFAULT_ROUND_A")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setAdminDefaultRoundA(Number(data.value));
+      });
+  }, []);
+
   // Get fixtures for active tournament view
   const getActiveFixtures = useCallback((tournament: TournamentTab) => {
     if (tournament === 'A') return aperturaFixtures;
@@ -352,9 +366,11 @@ export const useLiveLeagueEngine = () => {
   }, [aperturaTeams, clausuraTeams, acumuladaTeams]);
 
   // Current round per tournament (use auto-detected if user hasn't manually changed)
+  // Admin override takes priority over auto-detection
+  const effectiveDefaultRoundA = adminDefaultRoundA ?? autoDetectedRoundA;
   const currentRound = activeTournament === 'C'
     ? (currentRoundC ?? autoDetectedRoundC)
-    : (currentRoundA ?? autoDetectedRoundA);
+    : (currentRoundA ?? effectiveDefaultRoundA);
   const setCurrentRound = useCallback((round: number) => {
     if (activeTournament === 'C') setCurrentRoundC(round);
     else setCurrentRoundA(round);
