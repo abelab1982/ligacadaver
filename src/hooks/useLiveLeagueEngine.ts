@@ -238,7 +238,7 @@ export const useLiveLeagueEngine = () => {
   
   // Local predictions state (client-side only)
   const [predictions, setPredictions] = useState<Map<string, { home: number | null; away: number | null }>>(new Map());
-  const [adminDefaultRoundA, setAdminDefaultRoundA] = useState<number | null>(null);
+
   const [activeTournament, setActiveTournament] = useState<TournamentTab>(() => {
     // Auto-detect: if Apertura has no FT matches left (all 153 are FT), show Clausura
     // Otherwise show Apertura
@@ -374,11 +374,9 @@ export const useLiveLeagueEngine = () => {
   }, [aperturaTeams, clausuraTeams, acumuladaTeams]);
 
   // Current round per tournament (use auto-detected if user hasn't manually changed)
-  // Admin override takes priority over auto-detection
-  const effectiveDefaultRoundA = adminDefaultRoundA ?? autoDetectedRoundA;
   const currentRound = activeTournament === 'C'
     ? (currentRoundC ?? autoDetectedRoundC)
-    : (currentRoundA ?? effectiveDefaultRoundA);
+    : (currentRoundA ?? autoDetectedRoundA);
   const setCurrentRound = useCallback((round: number) => {
     if (activeTournament === 'C') setCurrentRoundC(round);
     else setCurrentRoundA(round);
