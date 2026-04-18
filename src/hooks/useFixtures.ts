@@ -57,25 +57,36 @@ export function useFixtures() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch fixtures from Supabase
+  // Fetch fixtures from Supabase with retry
   const fetchFixtures = useCallback(async () => {
-    try {
-      setLoading(true);
-      const { data, error: fetchError } = await supabase
-        .from("fixtures")
-        .select("*")
-        .order("round", { ascending: true });
+    setLoading(true);
+    setError(null);
+    
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const { data, error: fetchError } = await supabase
+          .from("fixtures")
+          .select("*")
+          .order("round", { ascending: true });
 
-      if (fetchError) throw fetchError;
+        if (fetchError) throw fetchError;
 
-      if (data && data.length > 0) {
-        setFixtures(data.map(mapDbToFixture));
+        if (data && data.length > 0) {
+          setFixtures(data.map(mapDbToFixture));
+        }
+        setLoading(false);
+        return; // Success, exit retry loop
+      } catch (err) {
+        console.error(`Error fetching fixtures (attempt ${attempt}/${maxRetries}):`, err);
+        if (attempt === maxRetries) {
+          setError(err instanceof Error ? err.message : "Failed to fetch fixtures");
+          setLoading(false);
+        } else {
+          // Wait before retry (500ms, 1500ms)
+          await new Promise(r => setTimeout(r, attempt * 500));
+        }
       }
-    } catch (err) {
-      console.error("Error fetching fixtures:", err);
-      setError(err instanceof Error ? err.message : "Failed to fetch fixtures");
-    } finally {
-      setLoading(false);
     }
   }, []);
 
