@@ -247,33 +247,29 @@ export const useLiveLeagueEngine = () => {
   // Auto-detect current round: first round with at least one non-FT match
   // After Monday, advance to next round (all matches of previous round should be FT by then)
   const autoDetectedRoundA = useMemo(() => {
-    const now = Date.now();
-    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
-    const rounds = new Map<number, { total: number; finished: number; hasUpcomingNS: boolean }>();
+    // Show the latest round that has any activity (FT or LIVE matches)
+    // Older incomplete rounds (e.g. postponed Fecha 10) don't block
+    const rounds = new Map<number, { total: number; finished: number; live: number }>();
     aperturaFixtures.forEach((f) => {
-      const entry = rounds.get(f.round) || { total: 0, finished: 0, hasUpcomingNS: false };
+      const entry = rounds.get(f.round) || { total: 0, finished: 0, live: 0 };
       entry.total++;
       if (f.status === "FT") entry.finished++;
-      // Check if any NS match has a kick_off scheduled within 7 days
-      if (f.status === "NS" && f.kickOff) {
-        const kickOffTime = new Date(f.kickOff).getTime();
-        if (kickOffTime > now - SEVEN_DAYS && kickOffTime < now + SEVEN_DAYS) {
-          entry.hasUpcomingNS = true;
-        }
-      }
+      if (f.status === "LIVE") entry.live++;
       rounds.set(f.round, entry);
     });
-    // Find the active round: skip rounds that are partially finished
-    // but have no upcoming NS matches (i.e., postponed/stale rounds)
+    // Prefer any round with LIVE matches first
+    for (let r = 17; r >= 1; r--) {
+      const entry = rounds.get(r);
+      if (entry && entry.live > 0) return r;
+    }
+    // Otherwise, find the latest round with at least one FT match
+    let latestActive = 1;
     for (let r = 1; r <= 17; r++) {
       const entry = rounds.get(r);
-      if (!entry) return r;
-      if (entry.finished >= entry.total) continue; // Fully finished, skip
-      if (entry.hasUpcomingNS) return r; // Has upcoming matches, this is active
-      if (entry.finished > 0) continue; // Partially finished, no upcoming = postponed, skip
-      return r; // Round hasn't started at all
+      if (!entry) continue;
+      if (entry.finished > 0) latestActive = r;
     }
-    return 17;
+    return latestActive;
   }, [aperturaFixtures]);
 
   const autoDetectedRoundC = useMemo(() => {
