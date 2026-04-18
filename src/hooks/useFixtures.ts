@@ -1,6 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
-import { supabasePublic as supabase } from "@/integrations/supabase/client";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useEffect, useState, useCallback, useRef } from "react";
 
 export type MatchStatus = "NS" | "LIVE" | "FT";
 export type TournamentType = "A" | "C";
@@ -32,7 +30,6 @@ export interface Fixture {
   isLocked: boolean;
   kickOff: string | null;
   tournament: TournamentType;
-  // Local prediction (not saved to DB for now)
   homePrediction: number | null;
   awayPrediction: number | null;
 }
@@ -52,91 +49,79 @@ const mapDbToFixture = (db: DbFixture): Fixture => ({
   awayPrediction: null,
 });
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
 export function useFixtures() {
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
 
-  // Fetch fixtures from Supabase with retry
+  // Fetch fixtures via raw fetch (no Supabase JS client = no auth interference)
   const fetchFixtures = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     const maxRetries = 3;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const { data, error: fetchError } = await supabase
-          .from("fixtures")
-          .select("*")
-          .order("round", { ascending: true });
+        const url = `${SUPABASE_URL}/rest/v1/fixtures?select=*&order=round.asc`;
+        const response = await fetch(url, {
+          headers: {
+            "apikey": SUPABASE_KEY,
+            "Authorization": `Bearer ${SUPABASE_KEY}`,
+            "Content-Type": "application/json",
+          },
+        });
 
-        if (fetchError) throw fetchError;
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data: DbFixture[] = await response.json();
+
+        if (!mountedRef.current) return;
 
         if (data && data.length > 0) {
           setFixtures(data.map(mapDbToFixture));
         }
         setLoading(false);
-        return; // Success, exit retry loop
+        return;
       } catch (err) {
         console.error(`Error fetching fixtures (attempt ${attempt}/${maxRetries}):`, err);
         if (attempt === maxRetries) {
-          setError(err instanceof Error ? err.message : "Failed to fetch fixtures");
-          setLoading(false);
+          if (mountedRef.current) {
+            setError(err instanceof Error ? err.message : "Failed to fetch fixtures");
+            setLoading(false);
+          }
         } else {
-          // Wait before retry (500ms, 1500ms)
           await new Promise(r => setTimeout(r, attempt * 500));
         }
       }
     }
   }, []);
 
-  // Set up realtime subscription for live updates
+  // Poll for updates every 30s instead of realtime (avoids Supabase client entirely)
   useEffect(() => {
+    mountedRef.current = true;
     fetchFixtures();
 
-    let channel: RealtimeChannel | null = null;
-
-    const setupRealtime = async () => {
-      channel = supabase
-        .channel("fixtures-changes")
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "fixtures",
-          },
-          (payload) => {
-            if (payload.eventType === "UPDATE" && payload.new) {
-              const updated = mapDbToFixture(payload.new as DbFixture);
-              setFixtures((prev) =>
-                prev.map((f) => (f.id === updated.id ? { ...f, ...updated } : f))
-              );
-            } else if (payload.eventType === "INSERT" && payload.new) {
-              const newFixture = mapDbToFixture(payload.new as DbFixture);
-              setFixtures((prev) => [...prev, newFixture]);
-            }
-          }
-        )
-        .subscribe();
-    };
-
-    setupRealtime();
+    const interval = setInterval(() => {
+      fetchFixtures();
+    }, 30000);
 
     return () => {
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
+      mountedRef.current = false;
+      clearInterval(interval);
     };
   }, [fetchFixtures]);
 
-  // Update local prediction (client-side only for unlocked fixtures)
   const updatePrediction = useCallback(
     (fixtureId: string, homePrediction: number | null, awayPrediction: number | null) => {
       setFixtures((prev) =>
         prev.map((f) => {
           if (f.id !== fixtureId) return f;
-          // Only allow updates if not locked
           if (f.isLocked) return f;
           return { ...f, homePrediction, awayPrediction };
         })
@@ -145,7 +130,6 @@ export function useFixtures() {
     []
   );
 
-  // Reset all predictions
   const resetPredictions = useCallback(() => {
     setFixtures((prev) =>
       prev.map((f) => ({
@@ -156,13 +140,11 @@ export function useFixtures() {
     );
   }, []);
 
-  // Get fixtures by round
   const getFixturesByRound = useCallback(
     (round: number) => fixtures.filter((f) => f.round === round),
     [fixtures]
   );
 
-  // Get unique rounds
   const rounds = [...new Set(fixtures.map((f) => f.round))].sort((a, b) => a - b);
   const totalRounds = rounds.length > 0 ? Math.max(...rounds) : 17;
 

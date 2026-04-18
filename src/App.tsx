@@ -16,27 +16,34 @@ import TeamPage from "./pages/TeamPage";
 
 const queryClient = new QueryClient();
 
+// Wrapper that adds AuthProvider only for routes that need it
+const WithAuth = ({ children }: { children: React.ReactNode }) => (
+  <AuthProvider>{children}</AuthProvider>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <AuthProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <GTMPageViewTracker />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/pizarra" element={<PizarraPage />} />
-            <Route path="/goleadores" element={<GoleadoresPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/registro" element={<RegisterPage />} />
-            <Route path="/admin" element={<AdminPage />} />
-            <Route path="/equipos/:slug" element={<TeamPage />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <GTMPageViewTracker />
+        <Routes>
+          {/* Public routes - NO AuthProvider, no Supabase auth interference */}
+          <Route path="/" element={<Index />} />
+          <Route path="/pizarra" element={<PizarraPage />} />
+          <Route path="/goleadores" element={<GoleadoresPage />} />
+          <Route path="/equipos/:slug" element={<TeamPage />} />
+
+          {/* Auth routes - wrapped with AuthProvider */}
+          <Route path="/login" element={<WithAuth><LoginPage /></WithAuth>} />
+          <Route path="/registro" element={<WithAuth><RegisterPage /></WithAuth>} />
+          <Route path="/admin" element={<WithAuth><AdminPage /></WithAuth>} />
+
+          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );
