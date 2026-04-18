@@ -2,7 +2,6 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { Team, initialTeams } from "@/data/teams";
 import { useFixtures, Fixture, MatchStatus, TournamentType } from "./useFixtures";
 import fixtureData from "@/data/fixture.json";
-import { supabase } from "@/integrations/supabase/client";
 
 export type LegacyMatchStatus = "played" | "pending";
 
@@ -311,16 +310,25 @@ export const useLiveLeagueEngine = () => {
     }
   }, [aperturaFixtures, clausuraFixtures]);
 
-  // Fetch admin-configured default round
+  // Fetch admin-configured default round via edge function (bypasses RLS)
   useEffect(() => {
-    supabase
-      .from("app_secrets")
-      .select("value")
-      .eq("key", "DEFAULT_ROUND_A")
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) setAdminDefaultRoundA(Number(data.value));
-      });
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    if (!supabaseUrl || !supabaseKey) return;
+    
+    fetch(`${supabaseUrl}/functions/v1/fixtures?action=get-settings`, {
+      headers: {
+        "apikey": supabaseKey,
+        "Authorization": `Bearer ${supabaseKey}`,
+      },
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data?.settings?.DEFAULT_ROUND_A) {
+          setAdminDefaultRoundA(Number(data.settings.DEFAULT_ROUND_A));
+        }
+      })
+      .catch(() => {}); // Silently fall back to auto-detect
   }, []);
 
   // Get fixtures for active tournament view

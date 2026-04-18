@@ -34,6 +34,23 @@ Deno.serve(async (req) => {
 
     // GET: Fetch all fixtures or by round
     if (req.method === "GET") {
+      // Action: get-settings (return app_secrets readable by frontend)
+      if (action === "get-settings") {
+        const { data, error } = await supabase
+          .from("app_secrets")
+          .select("key, value")
+          .in("key", ["DEFAULT_ROUND_A", "DEFAULT_ROUND_C"]);
+        
+        if (error) throw error;
+        
+        const settings: Record<string, string> = {};
+        (data || []).forEach((row: { key: string; value: string }) => { settings[row.key] = row.value; });
+        
+        return new Response(JSON.stringify({ settings }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const round = url.searchParams.get("round");
       
       let query = supabase
