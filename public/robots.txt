@@ -1,13 +1,14 @@
-# Robots.txt para Calculadora Liga 1 2026
-# https://calculadora-liga1.lovable.app
+# Robots.txt para Liga 1 Calc
+# https://liga1calc.pe
 
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /login
+Disallow: /registro
 
-# Sitemaps
-Sitemap: https://calculadora-liga1.lovable.app/sitemap.xml
+Sitemap: https://liga1calc.pe/sitemap.xml
 
-# Crawlers específicos
 User-agent: Googlebot
 Allow: /
 
@@ -18,9 +19,6 @@ User-agent: Twitterbot
 Allow: /
 
 User-agent: facebookexternalhit
-Allow: /
-
-User-agent: LinkedInBot
 Allow: /
 
 User-agent: WhatsApp
