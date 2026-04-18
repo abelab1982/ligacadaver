@@ -103,7 +103,16 @@ const mergeFixtures = (supabaseFixtures: Fixture[]): Fixture[] => {
   fixtureData.matches.forEach(roundData => {
     roundData.matches.forEach((match: JsonMatch) => {
       const compositeKey = `${match.homeId.toLowerCase()}-${match.awayId.toLowerCase()}-${roundData.round}`;
-      const supabaseMatch = supabaseByCompositeKey.get(compositeKey) || supabaseById.get(match.id);
+      const reversedKey = `${match.awayId.toLowerCase()}-${match.homeId.toLowerCase()}-${roundData.round}`;
+      // Look up by normal key, reversed key (admin may have saved with home/away swapped), or by ID
+      let supabaseMatch = supabaseByCompositeKey.get(compositeKey) || supabaseByCompositeKey.get(reversedKey) || supabaseById.get(match.id);
+      // If we found a match but it's NS and there's a played version with reversed teams, prefer that
+      if (supabaseMatch && supabaseMatch.status === "NS") {
+        const altMatch = supabaseByCompositeKey.get(reversedKey);
+        if (altMatch && (altMatch.status === "FT" || altMatch.status === "LIVE")) {
+          supabaseMatch = altMatch;
+        }
+      }
       
       if (supabaseMatch) {
         mergedFixtures.push(dbFixtureToFixture(supabaseMatch));

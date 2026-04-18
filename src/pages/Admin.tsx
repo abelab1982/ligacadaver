@@ -39,6 +39,7 @@ interface Fixture {
   is_locked: boolean;
   kick_off: string | null;
   api_fixture_id: number | null;
+  tournament: string;
   updated_at: string;
 }
 
@@ -242,12 +243,13 @@ export default function AdminPage() {
   const [syncing, setSyncing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [currentRound, setCurrentRound] = useState(1);
+  const [activeTournament, setActiveTournament] = useState<"A" | "C">("A");
 
   // Auto-detect first incomplete round
   useEffect(() => {
     if (fixtures.length > 0) {
       const rounds = new Map<number, { total: number; finished: number }>();
-      fixtures.forEach((f) => {
+      fixtures.filter(f => (f.tournament || 'A') === 'A').forEach((f) => {
         const entry = rounds.get(f.round) || { total: 0, finished: 0 };
         entry.total++;
         if (f.status === "FT") entry.finished++;
@@ -431,10 +433,10 @@ export default function AdminPage() {
     }
   };
 
-  // Filter fixtures by current round
+  // Filter fixtures by current round AND tournament
   const roundFixtures = useMemo(() => 
-    fixtures.filter(f => f.round === currentRound),
-  [fixtures, currentRound]);
+    fixtures.filter(f => f.round === currentRound && (f.tournament || 'A') === activeTournament),
+  [fixtures, currentRound, activeTournament]);
 
   // Round stats
   const roundStats = useMemo(() => {
@@ -482,16 +484,30 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Round Navigation */}
+      {/* Tournament Toggle + Round Navigation */}
       <div className="sticky top-[52px] z-10 bg-background/95 backdrop-blur border-b border-border px-3 py-2">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
+          <div className="flex rounded-md border border-border overflow-hidden">
+            <button
+              onClick={() => setActiveTournament("A")}
+              className={`px-3 py-1.5 text-xs font-bold transition-colors ${activeTournament === "A" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-accent"}`}
+            >
+              Apertura
+            </button>
+            <button
+              onClick={() => setActiveTournament("C")}
+              className={`px-3 py-1.5 text-xs font-bold transition-colors ${activeTournament === "C" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-accent"}`}
+            >
+              Clausura
+            </button>
+          </div>
           <select
             value={currentRound}
             onChange={(e) => setCurrentRound(Number(e.target.value))}
             className="bg-background border border-border rounded-md px-3 py-1.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary"
           >
             {Array.from({ length: TOTAL_ROUNDS }, (_, i) => i + 1).map((r) => {
-              const rFixtures = fixtures.filter(f => f.round === r);
+              const rFixtures = fixtures.filter(f => f.round === r && (f.tournament || 'A') === activeTournament);
               const allFT = rFixtures.length > 0 && rFixtures.every(f => f.status === "FT");
               const hasLive = rFixtures.some(f => f.status === "LIVE");
               const ftCount = rFixtures.filter(f => f.status === "FT").length;
