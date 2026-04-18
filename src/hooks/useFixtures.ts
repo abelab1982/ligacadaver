@@ -1,3 +1,4 @@
+// Raw fetch version - no Supabase client dependency
 import { useEffect, useState, useCallback, useRef } from "react";
 
 export type MatchStatus = "NS" | "LIVE" | "FT";
@@ -61,6 +62,7 @@ export function useFixtures() {
   // Fetch fixtures via raw fetch (no Supabase JS client = no auth interference)
   const fetchFixtures = useCallback(async () => {
     setLoading(true);
+    console.log("[useFixtures] fetching via raw REST API...");
     setError(null);
 
     const maxRetries = 3;
