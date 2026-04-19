@@ -456,19 +456,15 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-3 py-2">
+      {/* Header + Navigation (single sticky bar) */}
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-3 py-2 space-y-2">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => navigate("/")}>
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            <div>
-              <h1 className="text-sm font-bold">Admin Panel</h1>
-              <p className="text-[10px] text-muted-foreground">{user?.email}</p>
-            </div>
+            <h1 className="text-sm font-bold">Admin</h1>
           </div>
-          
           <div className="flex items-center gap-1">
             <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={triggerSync} disabled={syncing}>
               {syncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
@@ -482,10 +478,6 @@ export default function AdminPage() {
             </Button>
           </div>
         </div>
-      </div>
-
-      {/* Tournament Toggle + Round Navigation */}
-      <div className="sticky top-[52px] z-10 bg-background/95 backdrop-blur border-b border-border px-3 py-2">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
           <div className="flex rounded-md border border-border overflow-hidden">
             <button
