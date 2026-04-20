@@ -1,5 +1,5 @@
 # Robots.txt para Liga 1 Calc
-# https://liga1calc.pe
+# https://www.liga1calc.pe
 
 User-agent: *
 Allow: /
@@ -7,7 +7,7 @@ Disallow: /admin
 Disallow: /login
 Disallow: /registro
 
-Sitemap: https://liga1calc.pe/sitemap.xml
+Sitemap: https://www.liga1calc.pe/sitemap.xml
 
 User-agent: Googlebot
 Allow: /
