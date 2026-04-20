@@ -448,14 +448,14 @@ export default function AdminPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="h-full bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-full bg-background overflow-y-auto">
       {/* Header + Navigation (single sticky bar) */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-3 py-2 space-y-2">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
