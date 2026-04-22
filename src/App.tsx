@@ -17,6 +17,8 @@ const AdminPage = lazy(() => import("./pages/Admin"));
 const PizarraPage = lazy(() => import("./pages/Pizarra"));
 const GoleadoresPage = lazy(() => import("./pages/Goleadores"));
 const TeamPage = lazy(() => import("./pages/TeamPage"));
+const BlogPage = lazy(() => import("./pages/Blog"));
+const BlogPostPage = lazy(() => import("./pages/BlogPost"));
 
 const queryClient = new QueryClient();
 
@@ -48,6 +50,8 @@ const App = () => (
             <Route path="/pizarra" element={<PizarraPage />} />
             <Route path="/goleadores" element={<GoleadoresPage />} />
             <Route path="/equipos/:slug" element={<TeamPage />} />
+            <Route path="/blog" element={<BlogPage />} />
+            <Route path="/blog/:slug" element={<BlogPostPage />} />
 
             {/* Auth routes - lazy loaded + wrapped with AuthProvider */}
             <Route path="/login" element={<WithAuth><LoginPage /></WithAuth>} />
