@@ -1,11 +1,19 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -13,18 +21,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TeamLogo } from "@/components/TeamLogo";
-import { initialTeams } from "@/data/teams";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { 
   ArrowLeft, 
   RefreshCw, 
   Lock, 
   Unlock, 
+  Edit, 
   Loader2,
+  AlertCircle,
   Play,
   CheckCircle,
-  LogOut,
-  Save,
+  Clock,
+  Filter,
+  LogOut
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -39,288 +56,89 @@ interface Fixture {
   is_locked: boolean;
   kick_off: string | null;
   api_fixture_id: number | null;
-  tournament: string;
   updated_at: string;
 }
 
+type FilterType = "all" | "no-api-id" | "ns-past-kickoff" | "live-no-score" | "locked";
 const TOTAL_ROUNDS = 17;
-
-// Get team info by ID
-const getTeam = (id: string) => initialTeams.find(t => t.id === id);
-
-interface AdminMatchCardProps {
-  fixture: Fixture;
-  onSave: (fixture: Fixture, homeScore: number | null, awayScore: number | null, status: "NS" | "LIVE" | "FT") => void;
-  onToggleLock: (fixture: Fixture) => void;
-  saving: boolean;
-}
-
-const AdminMatchCard = ({ fixture, onSave, onToggleLock, saving }: AdminMatchCardProps) => {
-  const homeTeam = getTeam(fixture.home_id);
-  const awayTeam = getTeam(fixture.away_id);
-  const [homeScore, setHomeScore] = useState(fixture.home_score?.toString() ?? "");
-  const [awayScore, setAwayScore] = useState(fixture.away_score?.toString() ?? "");
-  const [status, setStatus] = useState(fixture.status);
-  const [hasChanges, setHasChanges] = useState(false);
-
-  // Reset local state when fixture data changes (e.g., after refetch)
-  useEffect(() => {
-    setHomeScore(fixture.home_score?.toString() ?? "");
-    setAwayScore(fixture.away_score?.toString() ?? "");
-    setStatus(fixture.status);
-    setHasChanges(false);
-  }, [fixture.home_score, fixture.away_score, fixture.status]);
-
-  const handleScoreChange = (side: "home" | "away", value: string) => {
-    if (value === "" || (/^\d+$/.test(value) && parseInt(value) <= 20)) {
-      if (side === "home") setHomeScore(value);
-      else setAwayScore(value);
-      setHasChanges(true);
-    }
-  };
-
-  const handleStatusChange = (newStatus: "NS" | "LIVE" | "FT") => {
-    setStatus(newStatus);
-    setHasChanges(true);
-  };
-
-  const handleSave = () => {
-    const hs = homeScore !== "" ? parseInt(homeScore) : null;
-    const as_ = awayScore !== "" ? parseInt(awayScore) : null;
-    onSave(fixture, hs, as_, status);
-    setHasChanges(false);
-  };
-
-  // Quick action: set score and mark as FT
-  const handleQuickFT = () => {
-    const hs = homeScore !== "" ? parseInt(homeScore) : null;
-    const as_ = awayScore !== "" ? parseInt(awayScore) : null;
-    if (hs !== null && as_ !== null) {
-      setStatus("FT");
-      onSave(fixture, hs, as_, "FT");
-      setHasChanges(false);
-    } else {
-      toast.error("Ingresa ambos scores antes de marcar como FINAL");
-    }
-  };
-
-  if (!homeTeam || !awayTeam) return null;
-
-  const statusColor = status === "FT" ? "bg-muted/50 border-muted" : status === "LIVE" ? "border-red-500/50 bg-red-950/20" : "bg-card/50 border-border";
-
-  return (
-    <Card className={`p-3 transition-all duration-200 ${statusColor} ${hasChanges ? "ring-2 ring-amber-500/50" : ""}`}>
-      {/* Mobile + Desktop Layout */}
-      <div className="flex flex-col gap-2">
-        {/* Teams + Score Row */}
-        <div className="flex items-center gap-2">
-          {/* Home Team */}
-          <div className="flex-1 flex items-center gap-2 justify-end min-w-0">
-            <span className="text-xs md:text-sm font-medium truncate">{homeTeam.name}</span>
-            <TeamLogo
-              teamId={homeTeam.id}
-              teamName={homeTeam.name}
-              abbreviation={homeTeam.abbreviation}
-              primaryColor={homeTeam.primaryColor}
-              size="md"
-            />
-          </div>
-
-          {/* Score Inputs */}
-          <div className="flex items-center gap-1 shrink-0">
-            <Input
-              type="text"
-              inputMode="numeric"
-              value={homeScore}
-              onChange={(e) => handleScoreChange("home", e.target.value)}
-              className="w-10 h-10 md:w-9 md:h-9 text-center text-lg md:text-base font-bold p-0 bg-background/80"
-              placeholder="-"
-            />
-            <span className="text-muted-foreground font-bold text-sm">-</span>
-            <Input
-              type="text"
-              inputMode="numeric"
-              value={awayScore}
-              onChange={(e) => handleScoreChange("away", e.target.value)}
-              className="w-10 h-10 md:w-9 md:h-9 text-center text-lg md:text-base font-bold p-0 bg-background/80"
-              placeholder="-"
-            />
-          </div>
-
-          {/* Away Team */}
-          <div className="flex-1 flex items-center gap-2 min-w-0">
-            <TeamLogo
-              teamId={awayTeam.id}
-              teamName={awayTeam.name}
-              abbreviation={awayTeam.abbreviation}
-              primaryColor={awayTeam.primaryColor}
-              size="md"
-            />
-            <span className="text-xs md:text-sm font-medium truncate">{awayTeam.name}</span>
-          </div>
-        </div>
-
-        {/* Actions Row */}
-        <div className="flex items-center justify-between gap-2">
-          {/* Status Select */}
-          <Select value={status} onValueChange={(v) => handleStatusChange(v as "NS" | "LIVE" | "FT")}>
-            <SelectTrigger className="w-24 h-7 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="NS">
-                <span className="flex items-center gap-1">NS</span>
-              </SelectItem>
-              <SelectItem value="LIVE">
-                <span className="flex items-center gap-1 text-red-400">EN VIVO</span>
-              </SelectItem>
-              <SelectItem value="FT">
-                <span className="flex items-center gap-1 text-green-400">FINAL</span>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Lock indicator + Quick actions */}
-          <div className="flex items-center gap-1">
-            {fixture.kick_off && (
-              <span className="text-[10px] text-muted-foreground hidden md:inline">
-                {new Date(fixture.kick_off).toLocaleString("es-PE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-              </span>
-            )}
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-1.5"
-              onClick={() => onToggleLock(fixture)}
-              title={fixture.is_locked ? "Desbloquear" : "Bloquear"}
-            >
-              {fixture.is_locked ? (
-                <Lock className="w-3.5 h-3.5 text-amber-500" />
-              ) : (
-                <Unlock className="w-3.5 h-3.5 text-muted-foreground" />
-              )}
-            </Button>
-
-            {/* Quick FT button */}
-            {status !== "FT" && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 px-2 text-xs gap-1 text-green-400 border-green-500/30 hover:bg-green-500/10"
-                onClick={handleQuickFT}
-              >
-                <CheckCircle className="w-3 h-3" />
-                FT
-              </Button>
-            )}
-
-            {/* Save button (only show when changes exist) */}
-            {hasChanges && (
-              <Button
-                size="sm"
-                className="h-7 px-2 text-xs gap-1"
-                onClick={handleSave}
-                disabled={saving}
-              >
-                {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                Guardar
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-    </Card>
-  );
-};
 
 export default function AdminPage() {
   const { user, isAdmin, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
   
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [filter, setFilter] = useState<FilterType>("all");
+  const [roundFilter, setRoundFilter] = useState<number | "all">("all");
+  
+  // Edit dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingFixture, setEditingFixture] = useState<Fixture | null>(null);
+  const [editForm, setEditForm] = useState({
+    home_score: "",
+    away_score: "",
+    status: "NS" as "NS" | "LIVE" | "FT",
+    is_locked: false,
+    kick_off: "",
+    api_fixture_id: "",
+  });
   const [saving, setSaving] = useState(false);
-  const [currentRound, setCurrentRound] = useState(1);
-  const [activeTournament, setActiveTournament] = useState<"A" | "C">("A");
 
-  // Auto-detect first incomplete round
-  useEffect(() => {
-    if (fixtures.length > 0) {
-      const rounds = new Map<number, { total: number; finished: number }>();
-      fixtures.filter(f => (f.tournament || 'A') === 'A').forEach((f) => {
-        const entry = rounds.get(f.round) || { total: 0, finished: 0 };
-        entry.total++;
-        if (f.status === "FT") entry.finished++;
-        rounds.set(f.round, entry);
-      });
-      for (let r = 1; r <= TOTAL_ROUNDS; r++) {
-        const entry = rounds.get(r);
-        if (!entry || entry.finished < entry.total) {
-          setCurrentRound(r);
-          return;
-        }
-      }
-      setCurrentRound(TOTAL_ROUNDS);
-    }
-  }, [fixtures.length > 0]); // Only on first load
-
-  // Fetch fixtures
+  // Fetch fixtures directly from Supabase REST API
   const fetchFixtures = useCallback(async () => {
     if (!user) return;
-    
+
     setLoading(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      
-      if (!token) {
-        toast.error("Sesión expirada");
-        navigate("/login");
-        return;
+      let query = supabase
+        .from("fixtures")
+        .select("*")
+        .order("round", { ascending: true })
+        .order("id", { ascending: true });
+
+      // Apply filters
+      if (filter === "no-api-id") {
+        query = query.is("api_fixture_id", null);
+      } else if (filter === "ns-past-kickoff") {
+        query = query
+          .eq("status", "NS")
+          .not("kick_off", "is", null)
+          .lt("kick_off", new Date().toISOString());
+      } else if (filter === "live-no-score") {
+        query = query
+          .eq("status", "LIVE")
+          .or("home_score.is.null,away_score.is.null");
+      } else if (filter === "locked") {
+        query = query.eq("is_locked", true);
       }
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
-      
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-fixtures`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          signal: controller.signal,
-        }
-      );
-      clearTimeout(timeout);
+      const { data, error } = await query;
 
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || "Error fetching fixtures");
+      if (error) {
+        throw new Error(error.message);
       }
 
-      setFixtures(data.fixtures || []);
-      
-    } catch (error: unknown) {
+      setFixtures(data || []);
+    } catch (error) {
       console.error("Error fetching fixtures:", error);
-      if (error instanceof Error && error.name === "AbortError") {
-        toast.error("Timeout al cargar fixtures - intenta de nuevo");
-      } else {
-        toast.error("Error al cargar fixtures");
-      }
+      toast.error("Error al cargar fixtures");
     } finally {
       setLoading(false);
     }
-  }, [user, navigate]);
+  }, [user, filter]);
 
-  // Auth check
+  // Effect: Auth check with grace period for admin role
   useEffect(() => {
     if (authLoading) return;
-    if (!user) { navigate("/login"); return; }
+    
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+    
     if (!isAdmin) {
+      // Give time for the admin role check to complete
       const timeout = setTimeout(() => {
         toast.error("Acceso denegado - Se requiere rol de administrador");
         navigate("/");
@@ -329,102 +147,92 @@ export default function AdminPage() {
     }
   }, [authLoading, user, isAdmin, navigate]);
 
-  // Fetch fixtures on mount
+  // Effect: Fetch fixtures
   useEffect(() => {
-    if (user && isAdmin) fetchFixtures();
+    if (user && isAdmin) {
+      fetchFixtures();
+    }
   }, [user, isAdmin, fetchFixtures]);
 
-  // Trigger livescore-sync
+  // Trigger livescore-sync (disabled - requires Edge Functions deployment)
   const triggerSync = async () => {
-    setSyncing(true);
-    try {
-      const { data: secretData } = await supabase
-        .from("app_secrets")
-        .select("value")
-        .eq("key", "CRON_SECRET")
-        .maybeSingle();
-
-      if (!secretData) { toast.error("CRON_SECRET no configurado"); return; }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/livescore-sync`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Cron-Secret": secretData.value,
-          },
-        }
-      );
-
-      const data = await response.json();
-      if (response.ok) { toast.success("Sincronización ejecutada"); fetchFixtures(); }
-      else throw new Error(data.error || "Error en sincronización");
-    } catch (error) {
-      console.error("Sync error:", error);
-      toast.error("Error al ejecutar sincronización");
-    } finally { setSyncing(false); }
+    toast.info("Sync no disponible - Edge Functions pendientes de deploy");
   };
 
-  // Save a single fixture
-  const saveFixture = async (fixture: Fixture, homeScore: number | null, awayScore: number | null, status: "NS" | "LIVE" | "FT") => {
+  // Open edit dialog
+  const openEditDialog = (fixture: Fixture) => {
+    setEditingFixture(fixture);
+    setEditForm({
+      home_score: fixture.home_score?.toString() ?? "",
+      away_score: fixture.away_score?.toString() ?? "",
+      status: fixture.status,
+      is_locked: fixture.is_locked,
+      kick_off: fixture.kick_off ? new Date(fixture.kick_off).toISOString().slice(0, 16) : "",
+      api_fixture_id: fixture.api_fixture_id?.toString() ?? "",
+    });
+    setEditDialogOpen(true);
+  };
+
+  // Save fixture changes directly via Supabase
+  const saveFixture = async () => {
+    if (!editingFixture) return;
+
     setSaving(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) { toast.error("Sesión expirada"); navigate("/login"); return; }
-
       const updateData: Record<string, unknown> = {
-        id: fixture.id,
-        status,
-        is_locked: status === "FT" || status === "LIVE",
+        status: editForm.status,
+        is_locked: editForm.is_locked,
       };
-      if (homeScore !== null) updateData.home_score = homeScore;
-      if (awayScore !== null) updateData.away_score = awayScore;
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-fixtures`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ fixtures: [updateData] }),
-        }
-      );
+      if (editForm.home_score !== "") {
+        updateData.home_score = parseInt(editForm.home_score);
+      } else {
+        updateData.home_score = null;
+      }
+      if (editForm.away_score !== "") {
+        updateData.away_score = parseInt(editForm.away_score);
+      } else {
+        updateData.away_score = null;
+      }
+      if (editForm.kick_off) {
+        updateData.kick_off = new Date(editForm.kick_off).toISOString();
+      }
+      if (editForm.api_fixture_id !== "") {
+        updateData.api_fixture_id = parseInt(editForm.api_fixture_id);
+      }
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Error saving fixture");
+      const { error } = await supabase
+        .from("fixtures")
+        .update(updateData)
+        .eq("id", editingFixture.id);
 
-      toast.success(`${fixture.home_id.toUpperCase()} ${homeScore ?? "-"} - ${awayScore ?? "-"} ${fixture.away_id.toUpperCase()} guardado`);
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      toast.success("Fixture actualizado");
+      setEditDialogOpen(false);
       fetchFixtures();
     } catch (error) {
       console.error("Save error:", error);
       toast.error("Error al guardar cambios");
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // Toggle lock
+  // Toggle lock status directly via Supabase
   const toggleLock = async (fixture: Fixture) => {
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) { toast.error("Sesión expirada"); return; }
+      const { error } = await supabase
+        .from("fixtures")
+        .update({ is_locked: !fixture.is_locked })
+        .eq("id", fixture.id);
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-fixtures`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ fixtures: [{ id: fixture.id, is_locked: !fixture.is_locked }] }),
-        }
-      );
+      if (error) {
+        throw new Error(error.message);
+      }
 
-      if (!response.ok) throw new Error("Error toggling lock");
       toast.success(fixture.is_locked ? "Desbloqueado" : "Bloqueado");
       fetchFixtures();
     } catch (error) {
@@ -433,110 +241,369 @@ export default function AdminPage() {
     }
   };
 
-  // Filter fixtures by current round AND tournament
-  const roundFixtures = useMemo(() => 
-    fixtures.filter(f => f.round === currentRound && (f.tournament || 'A') === activeTournament),
-  [fixtures, currentRound, activeTournament]);
+  // Status badge
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "LIVE":
+        return <Badge className="bg-red-500 animate-pulse">EN VIVO</Badge>;
+      case "FT":
+        return <Badge variant="secondary">FINAL</Badge>;
+      default:
+        return <Badge variant="outline">NS</Badge>;
+    }
+  };
 
-  // Round stats
-  const roundStats = useMemo(() => {
-    const total = roundFixtures.length;
-    const finished = roundFixtures.filter(f => f.status === "FT").length;
-    const live = roundFixtures.filter(f => f.status === "LIVE").length;
-    return { total, finished, live, pending: total - finished - live };
-  }, [roundFixtures]);
+  // Format date
+  const formatDate = (date: string | null) => {
+    if (!date) return "-";
+    return new Date(date).toLocaleString("es-PE", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
-  if (authLoading) {
+  if (authLoading || (!user && loading)) {
     return (
-      <div className="h-full bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="h-full bg-background overflow-y-auto">
-      {/* Header + Navigation (single sticky bar) */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-3 py-2 space-y-2">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
+    <div className="min-h-screen bg-background p-4 md:p-6 overflow-auto">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/")}
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Panel de Administración</h1>
+              <p className="text-muted-foreground text-sm">
+                Gestión de fixtures • {user?.email}
+              </p>
+            </div>
+          </div>
+          
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => navigate("/")}>
-              <ArrowLeft className="w-4 h-4" />
+            <Button
+              variant="outline"
+              onClick={triggerSync}
+              disabled={syncing}
+            >
+              {syncing ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Play className="w-4 h-4 mr-2" />
+              )}
+              Ejecutar Sync
             </Button>
-            <h1 className="text-sm font-bold">Admin</h1>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={triggerSync} disabled={syncing}>
-              {syncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
-              Sync
+            <Button
+              variant="outline"
+              onClick={fetchFixtures}
+              disabled={loading}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              Actualizar
             </Button>
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={fetchFixtures} disabled={loading}>
-              <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} />
-            </Button>
-            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={signOut}>
-              <LogOut className="w-3 h-3" />
+            <Button
+              variant="ghost"
+              onClick={signOut}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Salir
             </Button>
           </div>
         </div>
-        <div className="max-w-2xl mx-auto flex items-center gap-3">
-          <div className="flex rounded-md border border-border overflow-hidden">
-            <button
-              onClick={() => setActiveTournament("A")}
-              className={`px-3 py-1.5 text-xs font-bold transition-colors ${activeTournament === "A" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-accent"}`}
-            >
-              Apertura
-            </button>
-            <button
-              onClick={() => setActiveTournament("C")}
-              className={`px-3 py-1.5 text-xs font-bold transition-colors ${activeTournament === "C" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-accent"}`}
-            >
-              Clausura
-            </button>
-          </div>
-          <select
-            value={currentRound}
-            onChange={(e) => setCurrentRound(Number(e.target.value))}
-            className="bg-background border border-border rounded-md px-3 py-1.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            {Array.from({ length: TOTAL_ROUNDS }, (_, i) => i + 1).map((r) => {
-              const rFixtures = fixtures.filter(f => f.round === r && (f.tournament || 'A') === activeTournament);
-              const allFT = rFixtures.length > 0 && rFixtures.every(f => f.status === "FT");
-              const hasLive = rFixtures.some(f => f.status === "LIVE");
-              const ftCount = rFixtures.filter(f => f.status === "FT").length;
-              const label = `Fecha ${r}${allFT ? " \u2713" : hasLive ? " \u25CF EN VIVO" : ftCount > 0 ? ` (${ftCount}/${rFixtures.length})` : ""}`;
-              return <option key={r} value={r}>{label}</option>;
-            })}
-          </select>
-          <div className="flex gap-2 text-xs text-muted-foreground">
-            {roundStats.finished > 0 && <span className="text-green-400">{roundStats.finished} finalizados</span>}
-            {roundStats.live > 0 && <span className="text-red-400">{roundStats.live} en vivo</span>}
-            {roundStats.pending > 0 && <span>{roundStats.pending} pendientes</span>}
-          </div>
-        </div>
+
+        {/* Filters */}
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Filter className="w-4 h-4" />
+              Filtros
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Round filter */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-2 block">Filtrar por Fecha</Label>
+              <div className="flex flex-wrap gap-1.5">
+                <Button
+                  variant={roundFilter === "all" ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 min-w-[3rem]"
+                  onClick={() => setRoundFilter("all")}
+                >
+                  Todas
+                </Button>
+                {Array.from({ length: TOTAL_ROUNDS }, (_, i) => i + 1).map((r) => (
+                  <Button
+                    key={r}
+                    variant={roundFilter === r ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 min-w-[2.5rem]"
+                    onClick={() => setRoundFilter(r)}
+                  >
+                    {r}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Status filters */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-2 block">Filtros rápidos</Label>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={filter === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilter("all")}
+                >
+                  Todos
+                </Button>
+                <Button
+                  variant={filter === "no-api-id" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilter("no-api-id")}
+                >
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  Sin API ID
+                </Button>
+                <Button
+                  variant={filter === "ns-past-kickoff" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilter("ns-past-kickoff")}
+                >
+                  <Clock className="w-3 h-3 mr-1" />
+                  NS con kickoff pasado
+                </Button>
+                <Button
+                  variant={filter === "live-no-score" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilter("live-no-score")}
+                >
+                  <Play className="w-3 h-3 mr-1" />
+                  LIVE sin score
+                </Button>
+                <Button
+                  variant={filter === "locked" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilter("locked")}
+                >
+                  <Lock className="w-3 h-3 mr-1" />
+                  Bloqueados
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Fixtures Table */}
+        <Card className="mb-8">
+          <CardContent className="p-0">
+            <div className="overflow-auto max-h-[60vh]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-24">ID</TableHead>
+                    <TableHead className="w-16">Ronda</TableHead>
+                    <TableHead>Local</TableHead>
+                    <TableHead>Visita</TableHead>
+                    <TableHead className="text-center">Score</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
+                    <TableHead className="text-center">Bloq.</TableHead>
+                    <TableHead>Kick-off</TableHead>
+                    <TableHead>API ID</TableHead>
+                    <TableHead>Actualizado</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={11} className="text-center py-8">
+                        <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                      </TableCell>
+                    </TableRow>
+                  ) : (() => {
+                    const filtered = roundFilter === "all" ? fixtures : fixtures.filter(f => f.round === roundFilter);
+                    return filtered.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                        No hay fixtures con este filtro
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filtered.map((fixture) => (
+                      <TableRow key={fixture.id}>
+                        <TableCell className="font-mono text-xs">{fixture.id}</TableCell>
+                        <TableCell>{fixture.round}</TableCell>
+                        <TableCell className="uppercase font-medium">{fixture.home_id}</TableCell>
+                        <TableCell className="uppercase font-medium">{fixture.away_id}</TableCell>
+                        <TableCell className="text-center font-bold">
+                          {fixture.home_score ?? "-"} - {fixture.away_score ?? "-"}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {getStatusBadge(fixture.status)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {fixture.is_locked ? (
+                            <Lock className="w-4 h-4 text-amber-500 mx-auto" />
+                          ) : (
+                            <Unlock className="w-4 h-4 text-muted-foreground mx-auto" />
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {formatDate(fixture.kick_off)}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {fixture.api_fixture_id || (
+                            <span className="text-destructive">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {formatDate(fixture.updated_at)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => toggleLock(fixture)}
+                              title={fixture.is_locked ? "Desbloquear" : "Bloquear"}
+                            >
+                              {fixture.is_locked ? (
+                                <Unlock className="w-4 h-4" />
+                              ) : (
+                                <Lock className="w-4 h-4" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEditDialog(fixture)}
+                              title="Editar"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  );
+                  })()}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Match Cards */}
-      <div className="max-w-2xl mx-auto p-3 space-y-2">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Editar Fixture: {editingFixture?.id}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Score Local ({editingFixture?.home_id})</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={editForm.home_score}
+                  onChange={(e) => setEditForm({ ...editForm, home_score: e.target.value })}
+                  placeholder="-"
+                />
+              </div>
+              <div>
+                <Label>Score Visita ({editingFixture?.away_id})</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={editForm.away_score}
+                  onChange={(e) => setEditForm({ ...editForm, away_score: e.target.value })}
+                  placeholder="-"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label>Status</Label>
+              <Select
+                value={editForm.status}
+                onValueChange={(v) => setEditForm({ ...editForm, status: v as "NS" | "LIVE" | "FT" })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NS">NS (No iniciado)</SelectItem>
+                  <SelectItem value="LIVE">LIVE (En vivo)</SelectItem>
+                  <SelectItem value="FT">FT (Finalizado)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="is_locked"
+                checked={editForm.is_locked}
+                onChange={(e) => setEditForm({ ...editForm, is_locked: e.target.checked })}
+                className="rounded"
+              />
+              <Label htmlFor="is_locked">Bloqueado (no editable por usuarios)</Label>
+            </div>
+
+            <div>
+              <Label>Kick-off</Label>
+              <Input
+                type="datetime-local"
+                value={editForm.kick_off}
+                onChange={(e) => setEditForm({ ...editForm, kick_off: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <Label>API Fixture ID</Label>
+              <Input
+                type="number"
+                value={editForm.api_fixture_id}
+                onChange={(e) => setEditForm({ ...editForm, api_fixture_id: e.target.value })}
+                placeholder="ID de API-Football"
+              />
+            </div>
           </div>
-        ) : roundFixtures.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            No hay fixtures para esta fecha
-          </div>
-        ) : (
-          roundFixtures.map((fixture) => (
-            <AdminMatchCard
-              key={fixture.id}
-              fixture={fixture}
-              onSave={saveFixture}
-              onToggleLock={toggleLock}
-              saving={saving}
-            />
-          ))
-        )}
-      </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={saveFixture} disabled={saving}>
+              {saving ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <CheckCircle className="w-4 h-4 mr-2" />
+              )}
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
