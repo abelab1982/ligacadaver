@@ -7,6 +7,7 @@ import { ShareDialog } from "./ShareDialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useLiveLeagueEngine, TournamentTab } from "@/hooks/useLiveLeagueEngine";
+import { useAppConfig } from "@/hooks/useAppConfig";
 import { useState } from "react";
 import {
   Tooltip,
@@ -27,7 +28,8 @@ const tournamentLabels: Record<TournamentTab, string> = {
 export const MainLayout = () => {
   const [mobileView, setMobileView] = useState<MobileView>("fixture");
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
-  
+  const appConfig = useAppConfig();
+
   const {
     teams,
     currentRound,
@@ -48,7 +50,10 @@ export const MainLayout = () => {
     getTeamsByTournament,
     getStatsByTournament,
     updateFairPlay,
-  } = useLiveLeagueEngine();
+  } = useLiveLeagueEngine({
+    defaultRoundA: appConfig.defaultRoundA,
+    defaultRoundC: appConfig.defaultRoundC,
+  });
 
   const currentMatches = getMatchesByRound(currentRound);
 

@@ -103,16 +103,7 @@ const mergeFixtures = (supabaseFixtures: Fixture[]): Fixture[] => {
   fixtureData.matches.forEach(roundData => {
     roundData.matches.forEach((match: JsonMatch) => {
       const compositeKey = `${match.homeId.toLowerCase()}-${match.awayId.toLowerCase()}-${roundData.round}`;
-      const reversedKey = `${match.awayId.toLowerCase()}-${match.homeId.toLowerCase()}-${roundData.round}`;
-      // Look up by normal key, reversed key (admin may have saved with home/away swapped), or by ID
-      let supabaseMatch = supabaseByCompositeKey.get(compositeKey) || supabaseByCompositeKey.get(reversedKey) || supabaseById.get(match.id);
-      // If we found a match but it's NS and there's a played version with reversed teams, prefer that
-      if (supabaseMatch && supabaseMatch.status === "NS") {
-        const altMatch = supabaseByCompositeKey.get(reversedKey);
-        if (altMatch && (altMatch.status === "FT" || altMatch.status === "LIVE")) {
-          supabaseMatch = altMatch;
-        }
-      }
+      const supabaseMatch = supabaseByCompositeKey.get(compositeKey) || supabaseById.get(match.id);
       
       if (supabaseMatch) {
         mergedFixtures.push(dbFixtureToFixture(supabaseMatch));
@@ -233,7 +224,12 @@ const calculateStats = (fixtures: Fixture[], predictions: Map<string, { home: nu
 
 export type TournamentTab = "A" | "C" | "ACC";
 
-export const useLiveLeagueEngine = () => {
+export interface LeagueEngineOptions {
+  defaultRoundA?: number;
+  defaultRoundC?: number;
+}
+
+export const useLiveLeagueEngine = (options?: LeagueEngineOptions) => {
   const { fixtures: supabaseFixtures, loading, error, refetch } = useFixtures();
   
   // Merge Supabase fixtures with local JSON (Supabase wins when both exist)
@@ -247,41 +243,32 @@ export const useLiveLeagueEngine = () => {
   
   // Local predictions state (client-side only)
   const [predictions, setPredictions] = useState<Map<string, { home: number | null; away: number | null }>>(new Map());
-
   const [activeTournament, setActiveTournament] = useState<TournamentTab>(() => {
     // Auto-detect: if Apertura has no FT matches left (all 153 are FT), show Clausura
     // Otherwise show Apertura
     return 'A';
   });
   // Auto-detect current round: first round with at least one non-FT match
-  // After Monday, advance to next round (all matches of previous round should be FT by then)
+  // If a manual override is provided via options (from admin config), use that instead
   const autoDetectedRoundA = useMemo(() => {
-    // Show the latest round that has any activity (FT or LIVE matches)
-    // Older incomplete rounds (e.g. postponed Fecha 10) don't block
-    const rounds = new Map<number, { total: number; finished: number; live: number }>();
+    if (options?.defaultRoundA) return options.defaultRoundA;
+    const rounds = new Map<number, { total: number; finished: number }>();
     aperturaFixtures.forEach((f) => {
-      const entry = rounds.get(f.round) || { total: 0, finished: 0, live: 0 };
+      const entry = rounds.get(f.round) || { total: 0, finished: 0 };
       entry.total++;
       if (f.status === "FT") entry.finished++;
-      if (f.status === "LIVE") entry.live++;
       rounds.set(f.round, entry);
     });
-    // Prefer any round with LIVE matches first
-    for (let r = 17; r >= 1; r--) {
-      const entry = rounds.get(r);
-      if (entry && entry.live > 0) return r;
-    }
-    // Otherwise, find the latest round with at least one FT match
-    let latestActive = 1;
+    // Find the first round that is not fully finished
     for (let r = 1; r <= 17; r++) {
       const entry = rounds.get(r);
-      if (!entry) continue;
-      if (entry.finished > 0) latestActive = r;
+      if (!entry || entry.finished < entry.total) return r;
     }
-    return latestActive;
-  }, [aperturaFixtures]);
+    return 17;
+  }, [aperturaFixtures, options?.defaultRoundA]);
 
   const autoDetectedRoundC = useMemo(() => {
+    if (options?.defaultRoundC) return options.defaultRoundC;
     const rounds = new Map<number, { total: number; finished: number }>();
     clausuraFixtures.forEach((f) => {
       const entry = rounds.get(f.round) || { total: 0, finished: 0 };
@@ -294,7 +281,7 @@ export const useLiveLeagueEngine = () => {
       if (!entry || entry.finished < entry.total) return r;
     }
     return 17;
-  }, [clausuraFixtures]);
+  }, [clausuraFixtures, options?.defaultRoundC]);
 
   const [currentRoundA, setCurrentRoundA] = useState<number | null>(null);
   const [currentRoundC, setCurrentRoundC] = useState<number | null>(null);
@@ -314,27 +301,6 @@ export const useLiveLeagueEngine = () => {
       }
     }
   }, [aperturaFixtures, clausuraFixtures]);
-
-  // Fetch admin-configured default round via edge function (bypasses RLS)
-  useEffect(() => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-    if (!supabaseUrl || !supabaseKey) return;
-    
-    fetch(`${supabaseUrl}/functions/v1/fixtures?action=get-settings`, {
-      headers: {
-        "apikey": supabaseKey,
-        "Authorization": `Bearer ${supabaseKey}`,
-      },
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data?.settings?.DEFAULT_ROUND_A) {
-          setAdminDefaultRoundA(Number(data.settings.DEFAULT_ROUND_A));
-        }
-      })
-      .catch(() => {}); // Silently fall back to auto-detect
-  }, []);
 
   // Get fixtures for active tournament view
   const getActiveFixtures = useCallback((tournament: TournamentTab) => {

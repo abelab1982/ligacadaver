@@ -41,7 +41,8 @@ import {
   CheckCircle,
   Clock,
   Filter,
-  LogOut
+  LogOut,
+  Settings
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -84,6 +85,53 @@ export default function AdminPage() {
     api_fixture_id: "",
   });
   const [saving, setSaving] = useState(false);
+
+  // Default round config state
+  const [defaultRoundA, setDefaultRoundA] = useState<number>(13);
+  const [defaultRoundC, setDefaultRoundC] = useState<number>(1);
+  const [savingConfig, setSavingConfig] = useState(false);
+
+  // Fetch default round config from app_secrets
+  useEffect(() => {
+    const fetchConfig = async () => {
+      const { data } = await supabase
+        .from("app_secrets")
+        .select("key, value")
+        .in("key", ["DEFAULT_ROUND_A", "DEFAULT_ROUND_C"]);
+      if (data) {
+        data.forEach((row: { key: string; value: string }) => {
+          if (row.key === "DEFAULT_ROUND_A") setDefaultRoundA(parseInt(row.value, 10));
+          if (row.key === "DEFAULT_ROUND_C") setDefaultRoundC(parseInt(row.value, 10));
+        });
+      }
+    };
+    if (user && isAdmin) fetchConfig();
+  }, [user, isAdmin]);
+
+  // Save default round config
+  const saveDefaultRound = async () => {
+    setSavingConfig(true);
+    try {
+      // Upsert DEFAULT_ROUND_A
+      const { error: errA } = await supabase
+        .from("app_secrets")
+        .upsert({ key: "DEFAULT_ROUND_A", value: String(defaultRoundA) }, { onConflict: "key" });
+      if (errA) throw new Error(errA.message);
+
+      // Upsert DEFAULT_ROUND_C
+      const { error: errC } = await supabase
+        .from("app_secrets")
+        .upsert({ key: "DEFAULT_ROUND_C", value: String(defaultRoundC) }, { onConflict: "key" });
+      if (errC) throw new Error(errC.message);
+
+      toast.success("Fecha por defecto actualizada");
+    } catch (error) {
+      console.error("Config save error:", error);
+      toast.error("Error al guardar configuración");
+    } finally {
+      setSavingConfig(false);
+    }
+  };
 
   // Fetch fixtures directly from Supabase REST API
   const fetchFixtures = useCallback(async () => {
@@ -324,6 +372,60 @@ export default function AdminPage() {
           </div>
         </div>
 
+        {/* Default Round Config */}
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              Fecha por defecto en la página principal
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-end gap-4">
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Apertura</Label>
+                <Select
+                  value={String(defaultRoundA)}
+                  onValueChange={(v) => setDefaultRoundA(parseInt(v, 10))}
+                >
+                  <SelectTrigger className="w-24">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: TOTAL_ROUNDS }, (_, i) => i + 1).map((r) => (
+                      <SelectItem key={r} value={String(r)}>Fecha {r}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Clausura</Label>
+                <Select
+                  value={String(defaultRoundC)}
+                  onValueChange={(v) => setDefaultRoundC(parseInt(v, 10))}
+                >
+                  <SelectTrigger className="w-24">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: TOTAL_ROUNDS }, (_, i) => i + 1).map((r) => (
+                      <SelectItem key={r} value={String(r)}>Fecha {r}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={saveDefaultRound} disabled={savingConfig}>
+                {savingConfig ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                )}
+                Guardar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Filters */}
         <Card className="mb-6">
           <CardHeader className="pb-3">
@@ -491,7 +593,7 @@ export default function AdminPage() {
                               variant="ghost"
                               size="icon"
                               onClick={() => openEditDialog(fixture)}
-                              title="Editar"
+                            title="Editar"
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
