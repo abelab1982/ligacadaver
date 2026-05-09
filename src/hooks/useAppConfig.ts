@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 // Fallback defaults (used when app_secrets is not readable, e.g., anon users)
 const FALLBACK_DEFAULTS = {
-  DEFAULT_ROUND_A: 13,
+  DEFAULT_ROUND_A: 14,
   DEFAULT_ROUND_C: 1,
 };
 
