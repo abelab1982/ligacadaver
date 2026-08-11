@@ -349,11 +349,17 @@ const main = async () => {
     await writeFile(outputPath, buildPage(template, route), "utf8");
   }
 
-  // 404s must not be pre-rendered as one of the real routes; ship the bare shell.
-  await writeFile(join(distDir, "404.html"), stripTemplateSeo(template).replace(
-    /<\/head>/i,
-    `  <title>Página no encontrada | ${escapeHtml(SITE_NAME)}</title>\n    <meta name="robots" content="noindex, follow" />\n  </head>`
-  ), "utf8");
+  // Deliberately NO dist/404.html.
+  //
+  // Vercel gives a root 404.html precedence over the SPA catch-all rewrite, so
+  // shipping one made every client-only route (/login, /registro, /admin) answer
+  // 404 with the bare shell instead of loading the app — the admin panel became
+  // unreachable. Verified on a preview deployment: /login returned 404 with
+  // `content-disposition: filename="404"`.
+  //
+  // Unknown paths therefore fall through the rewrite to index.html and React
+  // renders src/pages/NotFound.tsx, which sets noindex so the soft-200 is not
+  // indexed. The e2e suite covers that.
 
   await writeSitemap(routes);
 
