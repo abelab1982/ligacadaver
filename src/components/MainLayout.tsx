@@ -8,7 +8,11 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useLiveLeagueEngine, TournamentTab } from "@/hooks/useLiveLeagueEngine";
 import { useAppConfig } from "@/hooks/useAppConfig";
-import { useState } from "react";
+import { useOdds } from "@/hooks/useOdds";
+import { initialTeams } from "@/data/teams";
+import { Seo } from "@/components/Seo";
+import { staticRoutes, homeFaq, SITE_URL } from "@/data/seoRoutes.mjs";
+import { useMemo, useState } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -24,6 +28,33 @@ const tournamentLabels: Record<TournamentTab, string> = {
   C: "Clausura",
   ACC: "Acumulada",
 };
+
+const homeRoute = staticRoutes.find((route) => route.path === "/");
+
+/** Stable team ordering for the simulation, independent of the live table order. */
+const simulationTeamIds = initialTeams.map((team) => team.id);
+
+const homeJsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    name: "Calculadora Liga 1 2026",
+    url: SITE_URL,
+    applicationCategory: "SportsApplication",
+    operatingSystem: "Any",
+    inLanguage: "es-PE",
+    offers: { "@type": "Offer", price: "0", priceCurrency: "PEN" },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: homeFaq.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: { "@type": "Answer", text: item.answer },
+    })),
+  },
+];
 
 export const MainLayout = () => {
   const [mobileView, setMobileView] = useState<MobileView>("fixture");
@@ -50,12 +81,32 @@ export const MainLayout = () => {
     getTeamsByTournament,
     getStatsByTournament,
     updateFairPlay,
+    fixtures,
+    aperturaFixtures,
+    clausuraFixtures,
+    predictions,
   } = useLiveLeagueEngine({
     defaultRoundA: appConfig.defaultRoundA,
     defaultRoundC: appConfig.defaultRoundC,
   });
 
   const currentMatches = getMatchesByRound(currentRound);
+
+  // The odds always describe the table on screen; team strength is rated from
+  // the whole season so a freshly-started Clausura still has real ratings.
+  const scopedFixtures = useMemo(() => {
+    if (activeTournament === "A") return aperturaFixtures;
+    if (activeTournament === "C") return clausuraFixtures;
+    return fixtures;
+  }, [activeTournament, aperturaFixtures, clausuraFixtures, fixtures]);
+
+  const { odds, simulatedMatches, computing: oddsComputing } = useOdds({
+    teamIds: simulationTeamIds,
+    fixtures: scopedFixtures,
+    strengthFixtures: fixtures,
+    predictions,
+    enabled: !loading && !error,
+  });
 
   if (loading) {
     return (
@@ -84,10 +135,22 @@ export const MainLayout = () => {
 
   return (
     <div className="h-full bg-background flex flex-col overflow-hidden">
+      <Seo
+        title={homeRoute?.title ?? "Calculadora Liga 1 2026"}
+        description={homeRoute?.description ?? ""}
+        path="/"
+        jsonLd={homeJsonLd}
+      />
       <div className="fixed inset-0 bg-gradient-to-br from-background via-background to-primary/5 pointer-events-none" />
       
       <div className="relative z-10 flex flex-col h-screen">
         <Header />
+
+        {/* The app shell is all tabs and tables, so the page heading lives here
+            for screen readers and for the document outline crawlers build. */}
+        <h1 className="sr-only">
+          Calculadora Liga 1 2026: tabla de posiciones del Apertura, Clausura y acumulada
+        </h1>
 
         {/* Tournament Tabs */}
         <div className="border-b border-border bg-card/50">
@@ -187,6 +250,9 @@ export const MainLayout = () => {
                   onReset={resetPredictions}
                   onResetPredictions={resetPredictions}
                   stats={stats}
+                  odds={odds}
+                  simulatedMatches={simulatedMatches}
+                  oddsComputing={oddsComputing}
                 />
               </div>
             </div>
@@ -236,6 +302,9 @@ export const MainLayout = () => {
                   onReset={resetPredictions}
                   onResetPredictions={resetPredictions}
                   stats={stats}
+                  odds={odds}
+                  simulatedMatches={simulatedMatches}
+                  oddsComputing={oddsComputing}
                 />
               </motion.div>
             )}

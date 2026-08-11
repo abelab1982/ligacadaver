@@ -1,7 +1,16 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { Team, initialTeams } from "@/data/teams";
 import { useFixtures, Fixture, MatchStatus, TournamentType } from "./useFixtures";
 import fixtureData from "@/data/fixture.json";
+import {
+  decodePredictions,
+  encodePredictions,
+  loadStoredCode,
+  readCodeFromUrl,
+  saveStoredCode,
+  syncCodeToUrl,
+  type PredictionMap,
+} from "@/lib/predictions";
 
 export type LegacyMatchStatus = "played" | "pending";
 
@@ -242,7 +251,32 @@ export const useLiveLeagueEngine = (options?: LeagueEngineOptions) => {
   const clausuraFixtures = useMemo(() => allFixtures.filter(f => f.tournament === 'C'), [allFixtures]);
   
   // Local predictions state (client-side only)
-  const [predictions, setPredictions] = useState<Map<string, { home: number | null; away: number | null }>>(new Map());
+  const [predictions, setPredictions] = useState<PredictionMap>(new Map());
+
+  // Restore predictions the first time fixtures are available. A code in the URL
+  // wins over local storage so that a shared link always shows what was shared.
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (hydratedRef.current || allFixtures.length === 0) return;
+    hydratedRef.current = true;
+    const code = readCodeFromUrl() || loadStoredCode();
+    if (!code) return;
+    const restored = decodePredictions(code, allFixtures);
+    if (restored.size > 0) setPredictions(restored);
+  }, [allFixtures]);
+
+  // Persist to local storage and mirror into the URL, so copying the address bar
+  // (or the "Copiar Link" button) shares the exact simulation on screen.
+  const predictionCode = useMemo(
+    () => encodePredictions(predictions, allFixtures),
+    [predictions, allFixtures]
+  );
+
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    saveStoredCode(predictionCode);
+    syncCodeToUrl(predictionCode);
+  }, [predictionCode]);
   const [activeTournament, setActiveTournament] = useState<TournamentTab>(() => {
     // Auto-detect: if Apertura has no FT matches left (all 153 are FT), show Clausura
     // Otherwise show Apertura
@@ -417,6 +451,10 @@ export const useLiveLeagueEngine = (options?: LeagueEngineOptions) => {
 
   return {
     fixtures: allFixtures,
+    aperturaFixtures,
+    clausuraFixtures,
+    predictions,
+    predictionCode,
     teams,
     currentRound,
     totalRounds: 17,

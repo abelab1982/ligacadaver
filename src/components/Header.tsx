@@ -14,9 +14,11 @@ export const Header = () => {
             <img src={liga1Logo} alt="Liga 1" className="w-8 h-8 object-contain" />
           </div>
           <div>
-            <h1 className="text-lg md:text-xl font-bold tracking-tight">
+            {/* Site-wide branding, not the page heading: using <h1> here gave every
+                page two h1s and pushed the real one down the outline. */}
+            <span className="block text-lg md:text-xl font-bold tracking-tight">
               Calculadora <span className="text-primary">Liga 1</span>
-            </h1>
+            </span>
             <p className="text-xs text-muted-foreground hidden md:block">Temporada 2026</p>
           </div>
         </Link>

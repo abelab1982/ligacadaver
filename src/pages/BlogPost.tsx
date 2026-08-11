@@ -2,7 +2,7 @@ import { useParams, Link, Navigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { getBlogPost } from "@/data/blog";
 import { Calendar, Tag, ArrowLeft, ChevronRight } from "lucide-react";
-import { useEffect } from "react";
+import { Seo, SITE_URL } from "@/components/Seo";
 
 /** Simple markdown-to-HTML converter (no external dependency) */
 function renderMarkdown(md: string): string {
@@ -41,29 +41,6 @@ const BlogPost = () => {
   const { slug } = useParams<{ slug: string }>();
   const post = slug ? getBlogPost(slug) : undefined;
 
-  useEffect(() => {
-    if (post) {
-      document.title = `${post.title} | Liga 1 Calc`;
-      const meta = document.querySelector('meta[name="description"]');
-      if (meta) meta.setAttribute("content", post.description);
-
-      // Update OG tags
-      const setMeta = (property: string, content: string) => {
-        let el = document.querySelector(`meta[property="${property}"]`);
-        if (!el) {
-          el = document.createElement("meta");
-          el.setAttribute("property", property);
-          document.head.appendChild(el);
-        }
-        el.setAttribute("content", content);
-      };
-      setMeta("og:title", post.title);
-      setMeta("og:description", post.description);
-      setMeta("og:url", `https://www.liga1calc.pe/blog/${post.slug}`);
-      setMeta("og:type", "article");
-    }
-  }, [post]);
-
   if (!post) {
     return <Navigate to="/blog" replace />;
   }
@@ -87,8 +64,32 @@ const BlogPost = () => {
     analisis: "bg-purple-500/20 text-purple-400",
   };
 
+  const articleJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    description: post.description,
+    datePublished: post.date,
+    dateModified: post.date,
+    inLanguage: "es-PE",
+    mainEntityOfPage: `${SITE_URL}/blog/${post.slug}`,
+    author: { "@type": "Organization", name: "Liga 1 Calc" },
+    publisher: {
+      "@type": "Organization",
+      name: "Liga 1 Calc",
+      logo: { "@type": "ImageObject", url: `${SITE_URL}/logo.png` },
+    },
+  };
+
   return (
     <div className="h-full overflow-y-auto bg-background text-foreground">
+      <Seo
+        title={`${post.title} | Liga 1 Calc`}
+        description={post.description}
+        path={`/blog/${post.slug}`}
+        type="article"
+        jsonLd={articleJsonLd}
+      />
       <Header />
       <main className="container max-w-3xl mx-auto px-4 py-8">
         {/* Breadcrumb */}
