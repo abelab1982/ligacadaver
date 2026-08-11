@@ -12,9 +12,9 @@
  * clears the container), so users see the app exactly as before while crawlers
  * get a fully-formed document on the first byte.
  *
- * Vercel serves a matching static file before applying the SPA rewrite, and
- * `cleanUrls` maps /goleadores.html to /goleadores, so client-side routing is
- * untouched.
+ * Vercel serves a matching static file before applying the SPA rewrite, and each
+ * route is written as a directory index (dist/goleadores/index.html), so
+ * /goleadores resolves from the filesystem and client-side routing is untouched.
  */
 
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
@@ -329,8 +329,21 @@ const buildPage = (template, route) => {
   return withBody;
 };
 
+/**
+ * Directory-index layout: /goleadores becomes dist/goleadores/index.html.
+ *
+ * The obvious alternative — dist/goleadores.html plus `cleanUrls: true` — is
+ * what shipped first, and it broke the site: with cleanUrls enabled Vercel
+ * 308-redirects every .html URL to its extensionless form, including the
+ * `/index.html` a rewrite points at, so the SPA catch-all stopped resolving and
+ * /login, /registro and /admin answered 404. Verified on a preview deployment.
+ *
+ * Serving each route as a directory index needs no cleanUrls at all: the
+ * filesystem resolves /goleadores on its own, and the catch-all rewrite to
+ * /index.html keeps working exactly as it did before any of this.
+ */
 const outputPathFor = (path) =>
-  path === "/" ? join(distDir, "index.html") : join(distDir, `${path.slice(1)}.html`);
+  path === "/" ? join(distDir, "index.html") : join(distDir, path.slice(1), "index.html");
 
 const main = async () => {
   const templatePath = join(distDir, "index.html");
