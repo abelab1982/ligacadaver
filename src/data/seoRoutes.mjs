@@ -201,7 +201,104 @@ const teamRoute = (team) => ({
 
 export const teamRoutes = teams.map(teamRoute);
 
-/** Every route that gets pre-rendered and listed in the sitemap. */
-export const allRoutes = [...staticRoutes, ...teamRoutes];
+/** Short team id (as used in fixture.json) -> display name and slug. */
+export const teamsById = {
+  uni: { name: "Universitario", slug: "universitario" },
+  ali: { name: "Alianza Lima", slug: "alianza-lima" },
+  cri: { name: "Sporting Cristal", slug: "sporting-cristal" },
+  mel: { name: "FBC Melgar", slug: "melgar" },
+  cus: { name: "Cusco FC", slug: "cusco-fc" },
+  cie: { name: "Cienciano", slug: "cienciano" },
+  gar: { name: "Deportivo Garcilaso", slug: "deportivo-garcilaso" },
+  adt: { name: "ADT", slug: "adt" },
+  shu: { name: "Sport Huancayo", slug: "sport-huancayo" },
+  utc: { name: "UTC", slug: "utc" },
+  com: { name: "Comerciantes Unidos", slug: "comerciantes-unidos" },
+  fcc: { name: "FC Cajamarca", slug: "fc-cajamarca" },
+  cha: { name: "Los Chankas", slug: "los-chankas" },
+  gra: { name: "Atlético Grau", slug: "atletico-grau" },
+  aas: { name: "Alianza Atlético", slug: "alianza-atletico" },
+  sba: { name: "Sport Boys", slug: "sport-boys" },
+  jpi: { name: "Juan Pablo II College", slug: "juan-pablo-ii" },
+  moq: { name: "Deportivo Moquegua", slug: "deportivo-moquegua" },
+};
+
+export const TOTAL_ROUNDS = 17;
+
+export const tournaments = {
+  apertura: { code: "A", label: "Torneo Apertura", short: "Apertura" },
+  clausura: { code: "C", label: "Torneo Clausura", short: "Clausura" },
+};
+
+const teamName = (id) => (teamsById[id] ? teamsById[id].name : id);
+
+/**
+ * One indexable page per matchday.
+ *
+ * This is the long-tail play: nobody searches "calculadora liga 1" as often as
+ * they search "tabla liga 1 fecha 15" or "resultados fecha 15 apertura", and a
+ * single-page app has nothing to rank for those. Each page gets its own title,
+ * description and — for the Apertura, whose calendar ships in fixture.json —
+ * the actual matchups written into the HTML, so no two pages read alike.
+ *
+ * `pairings` is supplied by the caller: scripts/prerender.mjs reads
+ * fixture.json from disk, the app imports it directly.
+ */
+export const buildRoundRoute = (tournamentSlug, round, pairings = []) => {
+  const tournament = tournaments[tournamentSlug];
+  const matchList = pairings
+    .map((m) => `${teamName(m.homeId)} vs ${teamName(m.awayId)}`)
+    .join(", ");
+
+  const paragraphs = [
+    matchList
+      ? `Los partidos de la Fecha ${round} del ${tournament.label} son: ${matchList}.`
+      : `Acá encuentras los partidos de la Fecha ${round} del ${tournament.label} con sus marcadores, y la tabla de posiciones tal como queda después de la jornada.`,
+    `Elige el resultado de cada partido que todavía no se juega y la tabla se reordena al instante. Los encuentros ya disputados se cargan solos y quedan bloqueados, así que la simulación siempre parte de datos reales.`,
+  ];
+
+  return {
+    path: `/${tournamentSlug}/fecha-${round}`,
+    tournamentSlug,
+    round,
+    title: `Fecha ${round} ${tournament.short} 2026 | Partidos, resultados y tabla de la Liga 1`,
+    description: `Partidos y resultados de la Fecha ${round} del ${tournament.label} 2026 de la Liga 1, con la tabla de posiciones actualizada. Simula los marcadores que faltan y mira cómo queda.`,
+    heading: `Fecha ${round} del ${tournament.label} 2026`,
+    intro: `Todos los partidos de la Fecha ${round} del ${tournament.label} de la Liga 1 2026, con resultados en vivo y la tabla de posiciones al día. Cambia cualquier marcador para ver cómo se mueve la tabla.`,
+    sections: [
+      { heading: `Partidos de la Fecha ${round}`, paragraphs },
+    ],
+    priority: "0.8",
+    changefreq: "daily",
+  };
+};
+
+/**
+ * All 34 matchday routes. Pass the fixture.json payload to bake the real
+ * Apertura matchups in; the Clausura calendar only lives in the database, so
+ * those pages ship the generic copy and the app fills in the live fixture.
+ */
+export const buildRoundRoutes = (fixtureData) => {
+  const byRound = new Map();
+  if (fixtureData && Array.isArray(fixtureData.matches)) {
+    for (const entry of fixtureData.matches) byRound.set(entry.round, entry.matches);
+  }
+
+  const routes = [];
+  for (const slug of Object.keys(tournaments)) {
+    for (let round = 1; round <= TOTAL_ROUNDS; round += 1) {
+      routes.push(
+        buildRoundRoute(slug, round, slug === "apertura" ? byRound.get(round) ?? [] : [])
+      );
+    }
+  }
+  return routes;
+};
+
+/**
+ * Routes known without any data. scripts/prerender.mjs replaces the matchday
+ * ones with the fixture-aware version before writing the HTML.
+ */
+export const allRoutes = [...staticRoutes, ...teamRoutes, ...buildRoundRoutes(null)];
 
 export const findRoute = (path) => allRoutes.find((route) => route.path === path);

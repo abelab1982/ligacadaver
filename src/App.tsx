@@ -19,6 +19,7 @@ const GoleadoresPage = lazy(() => import("./pages/Goleadores"));
 const TeamPage = lazy(() => import("./pages/TeamPage"));
 const BlogPage = lazy(() => import("./pages/Blog"));
 const BlogPostPage = lazy(() => import("./pages/BlogPost"));
+const RoundPage = lazy(() => import("./pages/RoundPage"));
 
 const queryClient = new QueryClient();
 
@@ -50,6 +51,12 @@ const App = () => (
             <Route path="/pizarra" element={<PizarraPage />} />
             <Route path="/goleadores" element={<GoleadoresPage />} />
             <Route path="/equipos/:slug" element={<TeamPage />} />
+            {/* One page per matchday, matching the pre-rendered HTML. Declared
+                per tournament on purpose: React Router v6 has no partial path
+                params, and a bare "/:a/:b" would swallow every unknown two-segment
+                URL that should 404. */}
+            <Route path="/apertura/:round" element={<RoundPage tournament="apertura" />} />
+            <Route path="/clausura/:round" element={<RoundPage tournament="clausura" />} />
             <Route path="/blog" element={<BlogPage />} />
             <Route path="/blog/:slug" element={<BlogPostPage />} />
 

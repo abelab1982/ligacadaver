@@ -25,16 +25,33 @@ import {
   DEFAULT_IMAGE,
   SITE_NAME,
   SITE_URL,
-  allRoutes,
+  buildRoundRoutes,
   homeFaq,
   primaryLinks,
+  staticRoutes,
+  teamRoutes,
   teams,
+  tournaments,
   zones,
+  TOTAL_ROUNDS,
 } from "../src/data/seoRoutes.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const distDir = resolve(here, "..", "dist");
 const blogDir = resolve(here, "..", "src", "data", "blog");
+const fixturePath = resolve(here, "..", "src", "data", "fixture.json");
+
+/**
+ * Matchday routes with the real Apertura calendar baked in, so each page ships
+ * its own set of fixtures instead of 34 near-identical stubs.
+ */
+const readRoundRoutes = async () => {
+  try {
+    return buildRoundRoutes(JSON.parse(await readFile(fixturePath, "utf8")));
+  } catch {
+    return buildRoundRoutes(null);
+  }
+};
 
 /**
  * Blog posts live as TypeScript modules, which Node can't import here, so we
@@ -135,6 +152,12 @@ const breadcrumbs = (route) => {
     if (route.path.startsWith("/equipos/")) {
       items.push({ name: "Equipos", item: `${SITE_URL}/` });
     }
+    if (route.tournamentSlug) {
+      items.push({
+        name: route.tournamentSlug === "apertura" ? "Torneo Apertura" : "Torneo Clausura",
+        item: `${SITE_URL}/${route.tournamentSlug}/fecha-1`,
+      });
+    }
     items.push({ name: route.heading, item: `${SITE_URL}${route.path}` });
   }
   return {
@@ -192,6 +215,44 @@ const renderTeamIndex = (route) =>
         .join("")}</ul></nav>`
     : "";
 
+/**
+ * Internal links to every matchday. Without these the 34 new pages would only
+ * be reachable from the sitemap, which is a much weaker crawl signal — and on a
+ * matchday page the sibling links are genuinely useful to a reader too.
+ */
+const renderRoundIndex = (route) => {
+  const rounds = (slug) =>
+    `<ul>${Array.from({ length: TOTAL_ROUNDS }, (_, i) => i + 1)
+      .map((n) =>
+        n === route.round && slug === route.tournamentSlug
+          ? `<li><strong>Fecha ${n}</strong></li>`
+          : `<li><a href="/${slug}/fecha-${n}">Fecha ${n}</a></li>`
+      )
+      .join("")}</ul>`;
+
+  if (route.tournamentSlug) {
+    const other = route.tournamentSlug === "apertura" ? "clausura" : "apertura";
+    return (
+      `<nav aria-label="Fechas del ${escapeHtml(tournaments[route.tournamentSlug].label)}">` +
+      `<h2>Todas las fechas del ${escapeHtml(tournaments[route.tournamentSlug].label)}</h2>` +
+      rounds(route.tournamentSlug) +
+      `<p><a href="/${other}/fecha-1">Ver las fechas del ${escapeHtml(tournaments[other].label)}</a></p>` +
+      `</nav>`
+    );
+  }
+
+  if (route.path !== "/") return "";
+  return Object.keys(tournaments)
+    .map(
+      (slug) =>
+        `<nav aria-label="Fechas del ${escapeHtml(tournaments[slug].label)}">` +
+        `<h2>Fechas del ${escapeHtml(tournaments[slug].label)} 2026</h2>` +
+        rounds(slug) +
+        `</nav>`
+    )
+    .join("");
+};
+
 const renderNav = () =>
   `<nav aria-label="Secciones"><ul>${primaryLinks
     .map((link) => `<li><a href="${link.path}">${escapeHtml(link.label)}</a></li>`)
@@ -210,6 +271,7 @@ const renderBody = (route) =>
     renderZones(route),
     renderFaq(route),
     renderTeamIndex(route),
+    renderRoundIndex(route),
     renderNav(),
     "</div>",
   ].join("");
@@ -278,7 +340,8 @@ const main = async () => {
     throw new Error("Unexpected placeholder in built index.html");
   }
 
-  const routes = [...allRoutes, ...(await readBlogRoutes())];
+  const roundRoutes = await readRoundRoutes();
+  const routes = [...staticRoutes, ...teamRoutes, ...roundRoutes, ...(await readBlogRoutes())];
 
   for (const route of routes) {
     const outputPath = outputPathFor(route.path);
