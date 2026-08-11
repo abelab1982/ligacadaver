@@ -20,6 +20,14 @@ export interface PredictionValue {
   away: number | null;
 }
 
+/**
+ * Keyed by `fixtureKey`, never by fixture id.
+ *
+ * Fixture ids are not stable: the app renders the local JSON fallback while the
+ * Supabase request is in flight, and `mergeFixtures` then swaps in the database
+ * rows under their own ids. Anything keyed by id is orphaned at that moment —
+ * which silently emptied the share code and wiped local storage.
+ */
 export type PredictionMap = Map<string, PredictionValue>;
 
 export const SEASON = "2026";
@@ -41,19 +49,23 @@ export const fixtureKey = (fixture: Pick<Fixture, "tournament" | "homeId" | "awa
 /**
  * Encode the completed predictions that still refer to a known, unplayed fixture.
  * Returns an empty string when there is nothing worth sharing.
+ *
+ * Driven by the fixture list rather than by the map, so a prediction for a match
+ * that has since kicked off drops out of the code on its own.
  */
 export const encodePredictions = (predictions: PredictionMap, fixtures: Fixture[]): string => {
-  const byId = new Map(fixtures.map((f) => [f.id, f]));
+  const seen = new Set<string>();
   const parts: string[] = [];
 
-  for (const [fixtureId, value] of predictions) {
-    const fixture = byId.get(fixtureId);
-    if (!fixture || fixture.status !== "NS") continue;
+  for (const fixture of fixtures) {
+    if (fixture.status !== "NS") continue;
+    const key = fixtureKey(fixture);
+    if (seen.has(key)) continue;
+    const value = predictions.get(key);
     if (!isComplete(value)) continue;
+    seen.add(key);
     parts.push(
-      fixtureKey(fixture) +
-        clampScore(value.home).toString(16) +
-        clampScore(value.away).toString(16)
+      key + clampScore(value.home).toString(16) + clampScore(value.away).toString(16)
     );
   }
 
@@ -61,25 +73,23 @@ export const encodePredictions = (predictions: PredictionMap, fixtures: Fixture[
   return parts.sort().join("");
 };
 
-/** Decode a share/storage code back into fixture-id keyed predictions. */
-export const decodePredictions = (code: string, fixtures: Fixture[]): PredictionMap => {
+/**
+ * Decode a share/storage code into predictions keyed by `fixtureKey`.
+ *
+ * Entries are kept even when no matching fixture is loaded yet, so a code that
+ * covers the Clausura still survives if it is decoded before those fixtures
+ * arrive. `encodePredictions` is what decides which of them are worth persisting.
+ */
+export const decodePredictions = (code: string): PredictionMap => {
   const result: PredictionMap = new Map();
   if (!code) return result;
 
-  const byKey = new Map<string, Fixture>();
-  for (const fixture of fixtures) {
-    // Only unplayed fixtures can carry a prediction.
-    if (fixture.status === "NS") byKey.set(fixtureKey(fixture), fixture);
-  }
-
   for (let i = 0; i + ENTRY_LENGTH <= code.length; i += ENTRY_LENGTH) {
     const entry = code.slice(i, i + ENTRY_LENGTH);
-    const fixture = byKey.get(entry.slice(0, 7));
-    if (!fixture) continue;
     const home = parseInt(entry[7], 16);
     const away = parseInt(entry[8], 16);
     if (Number.isNaN(home) || Number.isNaN(away)) continue;
-    result.set(fixture.id, { home, away });
+    result.set(entry.slice(0, 7), { home, away });
   }
 
   return result;

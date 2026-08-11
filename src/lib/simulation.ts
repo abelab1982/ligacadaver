@@ -13,7 +13,7 @@
  */
 
 import type { Fixture } from "@/hooks/useFixtures";
-import type { PredictionMap } from "@/lib/predictions";
+import { fixtureKey, type PredictionMap } from "@/lib/predictions";
 
 export interface TeamOdds {
   teamId: string;
@@ -205,7 +205,7 @@ export const simulateSeason = ({
     }
     if (fixture.status !== "NS") continue;
 
-    const prediction = predictions.get(fixture.id);
+    const prediction = predictions.get(fixtureKey(fixture));
     if (prediction && prediction.home !== null && prediction.away !== null) {
       // The user has called this one — treat it as settled.
       applyResult(homeIdx, awayIdx, prediction.home, prediction.away);

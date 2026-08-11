@@ -24,9 +24,9 @@ const signature = (fixtures: Fixture[], predictions: PredictionMap) => {
     key += `${fixture.id}:${fixture.status}:${fixture.homeScore ?? "-"}:${fixture.awayScore ?? "-"}|`;
   }
   const predictionKeys: string[] = [];
-  for (const [id, value] of predictions) {
+  for (const [matchKey, value] of predictions) {
     if (value.home === null || value.away === null) continue;
-    predictionKeys.push(`${id}=${value.home}-${value.away}`);
+    predictionKeys.push(`${matchKey}=${value.home}-${value.away}`);
   }
   return `${key}#${predictionKeys.sort().join(",")}`;
 };

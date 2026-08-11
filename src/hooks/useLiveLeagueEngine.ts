@@ -5,6 +5,7 @@ import fixtureData from "@/data/fixture.json";
 import {
   decodePredictions,
   encodePredictions,
+  fixtureKey,
   loadStoredCode,
   readCodeFromUrl,
   saveStoredCode,
@@ -139,7 +140,7 @@ const mergeFixtures = (supabaseFixtures: Fixture[]): Fixture[] => {
 };
 
 // Calculate team stats from fixtures
-const calculateTeamStats = (team: Team, fixtures: Fixture[], predictions: Map<string, { home: number | null; away: number | null }>) => {
+const calculateTeamStats = (team: Team, fixtures: Fixture[], predictions: PredictionMap) => {
   let played = 0, won = 0, drawn = 0, lost = 0, goalsFor = 0, goalsAgainst = 0;
   let pPlayed = 0, pWon = 0, pDrawn = 0, pLost = 0, pGoalsFor = 0, pGoalsAgainst = 0;
 
@@ -165,7 +166,7 @@ const calculateTeamStats = (team: Team, fixtures: Fixture[], predictions: Map<st
       if (tg > og) pWon++; else if (tg < og) pLost++; else pDrawn++;
     }
     else if (fixture.status === "NS") {
-      const prediction = predictions.get(fixture.id);
+      const prediction = predictions.get(fixtureKey(fixture));
       if (prediction && prediction.home !== null && prediction.away !== null) {
         const tg = isHome ? prediction.home : prediction.away;
         const og = isHome ? prediction.away : prediction.home;
@@ -202,7 +203,7 @@ const sortTeams = (teams: TeamStats[], usePredictions: boolean): TeamStats[] => 
 };
 
 // Calculate stats for a set of fixtures
-const calculateStats = (fixtures: Fixture[], predictions: Map<string, { home: number | null; away: number | null }>) => {
+const calculateStats = (fixtures: Fixture[], predictions: PredictionMap) => {
   let totalGoals = 0;
   const roundsWithActivity = new Set<number>();
   
@@ -214,7 +215,7 @@ const calculateStats = (fixtures: Fixture[], predictions: Map<string, { home: nu
       totalGoals += fixture.homeScore + fixture.awayScore;
       roundsWithActivity.add(fixture.round);
     } else if (fixture.status === "NS") {
-      const prediction = predictions.get(fixture.id);
+      const prediction = predictions.get(fixtureKey(fixture));
       if (prediction && prediction.home !== null && prediction.away !== null) {
         totalGoals += prediction.home + prediction.away;
         roundsWithActivity.add(fixture.round);
@@ -253,17 +254,21 @@ export const useLiveLeagueEngine = (options?: LeagueEngineOptions) => {
   // Local predictions state (client-side only)
   const [predictions, setPredictions] = useState<PredictionMap>(new Map());
 
-  // Restore predictions the first time fixtures are available. A code in the URL
+  // Restore predictions once the initial fetch has settled. A code in the URL
   // wins over local storage so that a shared link always shows what was shared.
+  //
+  // Waiting for `loading` matters: until then `allFixtures` is only the local
+  // JSON fallback, which has no Clausura at all, so hydrating early would drop
+  // every Clausura prediction in the code.
   const hydratedRef = useRef(false);
   useEffect(() => {
-    if (hydratedRef.current || allFixtures.length === 0) return;
+    if (hydratedRef.current || loading) return;
     hydratedRef.current = true;
     const code = readCodeFromUrl() || loadStoredCode();
     if (!code) return;
-    const restored = decodePredictions(code, allFixtures);
+    const restored = decodePredictions(code);
     if (restored.size > 0) setPredictions(restored);
-  }, [allFixtures]);
+  }, [loading]);
 
   // Persist to local storage and mirror into the URL, so copying the address bar
   // (or the "Copiar Link" button) shares the exact simulation on screen.
@@ -396,7 +401,7 @@ export const useLiveLeagueEngine = (options?: LeagueEngineOptions) => {
     return fixtures
       .filter(f => f.round === round)
       .map(f => {
-        const prediction = predictions.get(f.id);
+        const prediction = predictions.get(fixtureKey(f));
         return {
           ...fixtureToMatch(f),
           homePrediction: prediction?.home ?? null,
@@ -405,14 +410,24 @@ export const useLiveLeagueEngine = (options?: LeagueEngineOptions) => {
       });
   }, [getActiveFixtures, activeTournament, predictions]);
 
+  // The views hand back the fixture id they were rendered with; translate it to
+  // the durable key so the prediction survives the fixture list being replaced.
+  const keyByFixtureId = useMemo(() => {
+    const map = new Map<string, string>();
+    allFixtures.forEach((f) => map.set(f.id, fixtureKey(f)));
+    return map;
+  }, [allFixtures]);
+
   // Update prediction
   const updatePrediction = useCallback((matchId: string, homePrediction: number | null, awayPrediction: number | null) => {
+    const key = keyByFixtureId.get(matchId);
+    if (!key) return;
     setPredictions(prev => {
       const next = new Map(prev);
-      next.set(matchId, { home: homePrediction, away: awayPrediction });
+      next.set(key, { home: homePrediction, away: awayPrediction });
       return next;
     });
-  }, []);
+  }, [keyByFixtureId]);
 
   // Reset all predictions
   const resetPredictions = useCallback(() => {
