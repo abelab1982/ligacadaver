@@ -77,7 +77,7 @@ const TeamPage = () => {
   const getTeamColor = (id: string) => initialTeams.find((t) => t.id === id)?.primaryColor || "#666";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-full overflow-y-auto bg-background">
       <Seo
         title={seoRoute?.title ?? `${team.name} | Liga 1 2026`}
         description={

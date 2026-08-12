@@ -86,7 +86,7 @@ const RoundPage = ({ tournament: tournamentSlug }: RoundPageProps) => {
   const otherSlug = tournamentSlug === "apertura" ? "clausura" : "apertura";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-full overflow-y-auto bg-background">
       <Seo
         title={seo.title}
         description={seo.description}

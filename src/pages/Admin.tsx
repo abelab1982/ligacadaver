@@ -324,7 +324,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6 overflow-auto">
+    <div className="h-full overflow-y-auto bg-background p-4 md:p-6">
       <Seo
         title="Panel de administración | Liga 1 Calc"
         description="Gestión de fixtures y resultados de Liga 1 Calc."
