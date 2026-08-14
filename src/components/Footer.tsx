@@ -1,6 +1,10 @@
 import { ExternalLink } from "lucide-react";
 import yapeQr from "@/assets/yape-qr.jpeg";
 import { trackDonateClick } from "@/lib/gtm";
+import { AdSlot } from "./AdSlot";
+
+/** Configured in Vercel once AdSense is approved; until then nothing renders. */
+const FOOTER_AD_SLOT = import.meta.env.VITE_ADSENSE_SLOT_FOOTER as string | undefined;
 
 interface FooterProps {
   minimal?: boolean;
@@ -37,6 +41,7 @@ export const Footer = ({ minimal = false }: FooterProps) => {
     return (
       <footer className="w-full bg-card/50 border-t border-border py-4 px-4">
         <div className="flex flex-col items-center">
+          <AdSlot slot={FOOTER_AD_SLOT ?? ""} className="w-full max-w-md mb-3" />
           <BetssonAffiliate />
           <p className="text-xs text-muted-foreground text-center">
             Creado por <span className="font-medium text-foreground">Digital Trendy</span>
@@ -49,6 +54,7 @@ export const Footer = ({ minimal = false }: FooterProps) => {
   return (
     <footer className="w-full bg-card/50 border-t border-border py-6 px-4">
       <div className="max-w-md mx-auto text-center space-y-3">
+        <AdSlot slot={FOOTER_AD_SLOT ?? ""} className="w-full" />
         <BetssonAffiliate />
         
         <p className="text-xs text-muted-foreground">

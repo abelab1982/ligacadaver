@@ -1,17 +1,59 @@
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
-import { RotateCcw, Eye, EyeOff, Tv, Sparkles } from "lucide-react";
+import { RotateCcw, Eye, EyeOff, Tv, Sparkles, Trophy, Globe, TrendingDown, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TeamStats } from "@/hooks/useLeagueEngine";
 import { getStatusBadge } from "@/data/teams";
 import { TeamLogo } from "@/components/TeamLogo";
 import { Footer } from "./Footer";
+import { formatOdds, type TeamOdds } from "@/lib/simulation";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+
+/** Which probability the odds column is currently showing. */
+type OddsMetric = "champion" | "libertadores" | "relegation";
+
+const oddsMetrics: {
+  id: OddsMetric;
+  label: string;
+  shortLabel: string;
+  icon: typeof Trophy;
+  colorClass: string;
+  barClass: string;
+  help: string;
+}[] = [
+  {
+    id: "champion",
+    label: "Campeón",
+    shortLabel: "Campeón",
+    icon: Trophy,
+    colorClass: "text-amber-400",
+    barClass: "bg-amber-500/25",
+    help: "Probabilidad de terminar 1º en esta tabla",
+  },
+  {
+    id: "libertadores",
+    label: "Libertadores",
+    shortLabel: "Libert.",
+    icon: Globe,
+    colorClass: "text-green-400",
+    barClass: "bg-green-500/25",
+    help: "Probabilidad de terminar entre los 4 primeros",
+  },
+  {
+    id: "relegation",
+    label: "Descenso",
+    shortLabel: "Desc.",
+    icon: TrendingDown,
+    colorClass: "text-red-400",
+    barClass: "bg-red-500/25",
+    help: "Probabilidad de terminar en los 2 últimos puestos",
+  },
+];
 
 interface StandingsViewProps {
   teams: TeamStats[];
@@ -24,6 +66,11 @@ interface StandingsViewProps {
     totalGoals: number;
     averageGoals: string;
   };
+  /** Monte Carlo odds per team id, or null while there is nothing to simulate. */
+  odds?: Record<string, TeamOdds> | null;
+  /** Matches still to be simulated; 0 means the table is already decided. */
+  simulatedMatches?: number;
+  oddsComputing?: boolean;
 }
 
 const getContrastColor = (hexColor: string): string => {
@@ -48,9 +95,12 @@ interface TeamRowProps {
   team: TeamStats;
   position: number;
   showPredictions: boolean;
+  odds?: TeamOdds;
+  metric: (typeof oddsMetrics)[number];
+  showOdds: boolean;
 }
 
-const TeamRow = ({ team, position, showPredictions }: TeamRowProps) => {
+const TeamRow = ({ team, position, showPredictions, odds, metric, showOdds }: TeamRowProps) => {
   const statusBadge = getStatusBadge(team.status);
   const zone = getZoneIndicator(position);
   
@@ -120,7 +170,27 @@ const TeamRow = ({ team, position, showPredictions }: TeamRowProps) => {
           {gd > 0 ? `+${gd}` : gd}
         </span>
       </td>
-      
+
+      {/* Monte Carlo probability for the selected outcome */}
+      {showOdds && (
+        <td className="py-2.5 px-1 text-center">
+          {odds ? (
+            <span className="relative inline-flex items-center justify-center min-w-[42px] px-1.5 py-0.5 rounded overflow-hidden">
+              {/* Width of the tint encodes the probability, so the column reads at a glance. */}
+              <span
+                className={`absolute left-0 top-0 bottom-0 ${metric.barClass}`}
+                style={{ width: `${Math.round(odds[metric.id] * 100)}%` }}
+                aria-hidden="true"
+              />
+              <span className={`relative text-xs font-semibold tabular-nums ${metric.colorClass}`}>
+                {formatOdds(odds[metric.id])}
+              </span>
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground/40">–</span>
+          )}
+        </td>
+      )}
 
       {/* Points */}
       <td className="py-2.5 px-2 text-center">
@@ -145,9 +215,18 @@ export const StandingsView = ({
   onReset,
   onResetPredictions,
   stats,
+  odds = null,
+  simulatedMatches = 0,
+  oddsComputing = false,
 }: StandingsViewProps) => {
   const [streamerMode, setStreamerMode] = useState(false);
   const [isRevealed, setIsRevealed] = useState(false);
+  const [oddsMetric, setOddsMetric] = useState<OddsMetric>("champion");
+
+  // Nothing left to simulate means the table is settled — hide the column
+  // rather than show a wall of 0% / 100%.
+  const showOdds = simulatedMatches > 0;
+  const metric = oddsMetrics.find((m) => m.id === oddsMetric) ?? oddsMetrics[0];
 
   const handleToggleStreamerMode = () => {
     if (streamerMode) {
@@ -276,6 +355,56 @@ export const StandingsView = ({
         </TooltipProvider>
       </div>
 
+      {/* Probability selector — the column on the right follows this choice */}
+      {showOdds && (
+        <div className="px-3 py-2 border-b border-border bg-card/10 flex items-center gap-2 flex-wrap">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-[10px] text-muted-foreground cursor-help whitespace-nowrap">
+                  Probabilidad de:
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[260px]">
+                <p>
+                  Calculada simulando el campeonato 5.000 veces a partir de los resultados
+                  reales y de los marcadores que ya elegiste. Los {simulatedMatches} partidos
+                  que faltan se simulan según el rendimiento de cada equipo.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <div className="flex items-center gap-1">
+            {oddsMetrics.map((option) => {
+              const Icon = option.icon;
+              const isActive = option.id === oddsMetric;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setOddsMetric(option.id)}
+                  aria-pressed={isActive}
+                  title={option.help}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                    isActive
+                      ? `border-current ${option.colorClass} bg-muted/40`
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="w-3 h-3" />
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {oddsComputing && (
+            <Loader2 className="w-3 h-3 animate-spin text-muted-foreground/60" aria-label="Calculando" />
+          )}
+        </div>
+      )}
+
       {/* Table with Streamer Mode Overlay */}
       <div className="flex-1 overflow-y-auto relative custom-scrollbar">
         {/* Blur overlay for Streamer Mode */}
@@ -370,7 +499,12 @@ export const StandingsView = ({
               <th className="py-2 px-1 text-center hidden lg:table-cell">GF</th>
               <th className="py-2 px-1 text-center hidden lg:table-cell">GC</th>
               <th className="py-2 px-1 text-center">DG</th>
-              
+              {showOdds && (
+                <th className="py-2 px-1 text-center whitespace-nowrap" title={metric.help}>
+                  <span className={metric.colorClass}>%</span>{" "}
+                  <span className="hidden sm:inline">{metric.shortLabel}</span>
+                </th>
+              )}
               <th className="py-2 px-2 text-center">Pts</th>
             </tr>
           </thead>
@@ -383,6 +517,9 @@ export const StandingsView = ({
                     team={team}
                     position={index + 1}
                     showPredictions={showPredictions}
+                    odds={odds?.[team.id]}
+                    metric={metric}
+                    showOdds={showOdds}
                   />
                 ))}
               </AnimatePresence>

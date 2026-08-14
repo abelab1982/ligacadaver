@@ -2,7 +2,10 @@ import { Link } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { blogPostsMeta } from "@/data/blog";
 import { Calendar, Tag, ArrowRight } from "lucide-react";
-import { useEffect } from "react";
+import { Seo } from "@/components/Seo";
+import { staticRoutes } from "@/data/seoRoutes.mjs";
+
+const route = staticRoutes.find((r) => r.path === "/blog");
 
 const categoryLabels: Record<string, string> = {
   predicciones: "Predicciones",
@@ -17,19 +20,9 @@ const categoryColors: Record<string, string> = {
 };
 
 const Blog = () => {
-  useEffect(() => {
-    document.title = "Blog - Liga 1 Calc | Predicciones y Analisis del Futbol Peruano";
-    const meta = document.querySelector('meta[name="description"]');
-    if (meta) {
-      meta.setAttribute(
-        "content",
-        "Predicciones, resumenes y analisis de la Liga 1 del futbol peruano. Informacion actualizada fecha a fecha."
-      );
-    }
-  }, []);
-
   return (
     <div className="h-full overflow-y-auto bg-background text-foreground">
+      <Seo title={route.title} description={route.description} path="/blog" />
       <Header />
       <main className="container max-w-4xl mx-auto px-4 py-8">
         <div className="mb-8">

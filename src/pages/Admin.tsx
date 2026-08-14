@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Seo } from "@/components/Seo";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -323,7 +324,13 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6 overflow-auto">
+    <div className="h-full overflow-y-auto bg-background p-4 md:p-6">
+      <Seo
+        title="Panel de administración | Liga 1 Calc"
+        description="Gestión de fixtures y resultados de Liga 1 Calc."
+        path="/admin"
+        noindex
+      />
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">

@@ -6,6 +6,8 @@ import { initialTeams, getStatusBadge } from "@/data/teams";
 import { TeamLogo } from "@/components/TeamLogo";
 import { useFixtures } from "@/hooks/useFixtures";
 import { useLiveLeagueEngine } from "@/hooks/useLiveLeagueEngine";
+import { Seo, SITE_URL } from "@/components/Seo";
+import { teamRoutes } from "@/data/seoRoutes.mjs";
 
 const TeamPage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -58,13 +60,33 @@ const TeamPage = () => {
     );
   }
 
+  const seoRoute = teamRoutes.find((route) => route.path === `/equipos/${slug}`);
+  const teamJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SportsTeam",
+    name: team.name,
+    sport: "Football",
+    url: `${SITE_URL}/equipos/${slug}`,
+    location: { "@type": "Place", name: team.city, address: { "@type": "PostalAddress", addressCountry: "PE" } },
+    memberOf: { "@type": "SportsOrganization", name: "Liga 1", url: SITE_URL },
+  };
+
   const statusBadge = getStatusBadge(team.status);
   const getTeamName = (id: string) => initialTeams.find((t) => t.id === id)?.name || id;
   const getTeamAbbr = (id: string) => initialTeams.find((t) => t.id === id)?.abbreviation || id;
   const getTeamColor = (id: string) => initialTeams.find((t) => t.id === id)?.primaryColor || "#666";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-full overflow-y-auto bg-background">
+      <Seo
+        title={seoRoute?.title ?? `${team.name} | Liga 1 2026`}
+        description={
+          seoRoute?.description ??
+          `${team.name} en la Liga 1 2026: posición en la tabla, puntos, próximos partidos y últimos resultados.`
+        }
+        path={`/equipos/${slug}`}
+        jsonLd={teamJsonLd}
+      />
       {/* Header */}
       <div className="bg-gradient-to-b from-primary/10 to-background border-b border-border">
         <div className="max-w-2xl mx-auto px-4 py-6">

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Seo } from "@/components/Seo";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -68,6 +69,12 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Seo
+        title="Crear cuenta | Liga 1 Calc"
+        description="Registro para el panel de administración de Liga 1 Calc."
+        path="/registro"
+        noindex
+      />
       <div className="w-full max-w-md">
         <Link
           to="/"

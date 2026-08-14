@@ -51,38 +51,66 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    // Set up auth state listener FIRST
+    let active = true;
+
+    /**
+     * Resolve the admin role OUTSIDE the auth callback.
+     *
+     * supabase-js awaits the onAuthStateChange callback from inside
+     * `_emitInitialSession`, which runs while the auth lock is held. Any
+     * Supabase query needs an access token, so it calls `getSession()`, which
+     * re-enters `_acquireLock` and waits on the pending in-lock operation — the
+     * very callback that is waiting on the query. That circular wait never
+     * resolves (the 10s `lockAcquireTimeout` only guards the initial lock
+     * acquisition, not the re-entrant path), so `loading` stayed true forever
+     * and /admin showed its spinner indefinitely for any signed-in user.
+     *
+     * setTimeout gets the query out of that call stack, after the lock is free.
+     */
+    const resolveAdminRole = (userId: string | null) => {
+      if (!userId) {
+        setIsAdmin(false);
+        return;
+      }
+      setTimeout(async () => {
+        const adminStatus = await checkAdminRole(userId);
+        if (active) setIsAdmin(adminStatus);
+      }, 0);
+    };
+
+    // Set up auth state listener FIRST.
+    // Deliberately NOT an async callback — see resolveAdminRole above.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
+        if (!active) return;
         setSession(session);
         setUser(session?.user ?? null);
-
-        if (session?.user) {
-          // Check admin role
-          const adminStatus = await checkAdminRole(session.user.id);
-          setIsAdmin(adminStatus);
-        } else {
-          setIsAdmin(false);
-        }
-
+        resolveAdminRole(session?.user?.id ?? null);
         setLoading(false);
       }
     );
 
     // Then get initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (!active) return;
+        setSession(session);
+        setUser(session?.user ?? null);
+        resolveAdminRole(session?.user?.id ?? null);
+      })
+      .catch((error) => {
+        // Never leave the app stuck on a spinner because the session lookup failed.
+        console.error("Error getting session:", error);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
 
-      if (session?.user) {
-        const adminStatus = await checkAdminRole(session.user.id);
-        setIsAdmin(adminStatus);
-      }
-
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {

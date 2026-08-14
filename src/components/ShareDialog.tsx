@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useMemo, useRef, useState, useCallback } from "react";
 import { toBlob, toPng } from "html-to-image";
-import { AlertCircle, Download, Link, Loader2, Share2, Bug } from "lucide-react";
+import { AlertCircle, Download, Link, Loader2, MessageCircle, Share2, Bug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { TeamStats } from "@/hooks/useLeagueEngine";
 import { useToast } from "@/hooks/use-toast";
+import { buildShareUrl, readCodeFromUrl } from "@/lib/predictions";
+import { trackShareClick } from "@/lib/gtm";
 
 interface ShareDialogProps {
   open: boolean;
@@ -32,7 +34,8 @@ const getZoneColor = (position: number): string => {
   if (position === 1) return "#f59e0b";
   if (position >= 2 && position <= 4) return "#22c55e";
   if (position >= 5 && position <= 8) return "#3b82f6";
-  if (position >= 16) return "#ef4444";
+  // Same relegation zone as the standings legend: the bottom two.
+  if (position >= 17) return "#ef4444";
   return "transparent";
 };
 
@@ -395,13 +398,24 @@ export const ShareDialog = ({ open, onOpenChange, teams, showPredictions }: Shar
     }
   }, [ensureImageData, imageData, log, toast]);
 
+  // The prediction code lives in the query string, so the current URL already
+  // encodes the table on screen. Rebuild it canonically to drop any stray params.
+  const shareUrl = useCallback(() => buildShareUrl(readCodeFromUrl()), []);
+
+  const shareMessage = useCallback(
+    () =>
+      `Mira cómo queda la tabla de la Liga 1 2026 con mis pronósticos ⚽\n${shareUrl()}`,
+    [shareUrl]
+  );
+
   const handleCopyLink = useCallback(async () => {
-    const url = window.location.href;
+    const url = shareUrl();
+    trackShareClick("copy_link");
     try {
       await navigator.clipboard.writeText(url);
       toast({
         title: "¡Link copiado!",
-        description: "El enlace se ha copiado al portapapeles",
+        description: "Quien lo abra verá exactamente tu tabla con tus pronósticos",
       });
     } catch {
       toast({
@@ -410,7 +424,16 @@ export const ShareDialog = ({ open, onOpenChange, teams, showPredictions }: Shar
         variant: "destructive",
       });
     }
-  }, [toast]);
+  }, [shareUrl, toast]);
+
+  const handleWhatsApp = useCallback(() => {
+    trackShareClick("whatsapp");
+    window.open(
+      `https://wa.me/?text=${encodeURIComponent(shareMessage())}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }, [shareMessage]);
 
   const handleRetry = useCallback(async () => {
     setDebugLines([]);
@@ -568,18 +591,31 @@ export const ShareDialog = ({ open, onOpenChange, teams, showPredictions }: Shar
                 Descargar PNG
               </Button>
 
-              {canShare ? (
+              {canShare && (
                 <Button className="flex-1 gap-2" onClick={handleShare} disabled={isGenerating}>
                   <Share2 className="w-4 h-4" />
                   Compartir
                 </Button>
-              ) : (
-                <Button variant="secondary" className="flex-1 gap-2" onClick={handleCopyLink}>
-                  <Link className="w-4 h-4" />
-                  Copiar Link
-                </Button>
               )}
             </div>
+
+            <div className="flex gap-2">
+              <Button
+                className="flex-1 gap-2 bg-[#25D366] text-black hover:bg-[#25D366]/90"
+                onClick={handleWhatsApp}
+              >
+                <MessageCircle className="w-4 h-4" />
+                WhatsApp
+              </Button>
+              <Button variant="secondary" className="flex-1 gap-2" onClick={handleCopyLink}>
+                <Link className="w-4 h-4" />
+                Copiar Link
+              </Button>
+            </div>
+
+            <p className="text-[11px] text-muted-foreground text-center">
+              El link incluye tus pronósticos: quien lo abra verá la misma tabla.
+            </p>
 
             {isGenerating && (
               <p className="text-xs text-muted-foreground text-center">Preparando imagen (diagnóstico activo)...</p>

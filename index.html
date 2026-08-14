@@ -19,7 +19,9 @@
     </script>
     
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <!-- No maximum-scale/user-scalable: blocking zoom fails accessibility audits
+         and costs Lighthouse points, which Google surfaces in Search Console. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     
     <!-- Favicon & App Icons -->
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon.png" />
@@ -30,31 +32,42 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
     
-    <!-- SEO Primary Meta Tags -->
-    <title>Liga 1 Calc - Simulador de Tabla de Posiciones 2026</title>
-    <meta name="description" content="Simula los resultados de la Liga 1 2026. Predice al campeón, clasificados a Copa Libertadores y descenso con nuestra calculadora interactiva del fútbol peruano." />
-    <meta name="keywords" content="Liga 1 2026, Calculadora Fútbol Peruano, Tabla de Posiciones, Simulador Liga 1, Alianza Lima, Universitario, Sporting Cristal, Liga 1 Calc" />
+    <!-- Speed up the very first data call: the fixtures request fires as soon as React mounts. -->
+    <link rel="preconnect" href="https://wnlmeiqmjujjjesszgcg.supabase.co" crossorigin />
+    <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+
+    <!-- SEO Primary Meta Tags.
+         These are the fallback values; `scripts/prerender.mjs` replaces them with
+         per-route tags at build time and `src/components/Seo.tsx` keeps them
+         correct during client-side navigation. -->
+    <title>Calculadora Liga 1 2026 | Tabla de Posiciones, Acumulada y Pronósticos</title>
+    <meta name="description" content="Simula la Liga 1 2026 partido por partido: tabla de posiciones del Apertura, Clausura y acumulada en vivo, con probabilidades de campeón, Libertadores y descenso. Gratis y sin registro." />
     <meta name="author" content="Digital Trendy" />
     <meta name="theme-color" content="#14161b" />
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
     <meta name="application-name" content="Liga 1 Calc" />
-    <link rel="canonical" href="https://liga1calc.pe/" />
+    <meta name="geo.region" content="PE" />
+    <link rel="canonical" href="https://www.liga1calc.pe/" />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://calculadoraliga1.lovable.app/" />
-    <meta property="og:title" content="Liga 1 Calc - Simulador de Tabla de Posiciones 2026" />
-    <meta property="og:description" content="Simula los resultados de la Liga 1 2026. Predice al campeón, clasificados a Copa Libertadores y descenso con nuestra calculadora interactiva del fútbol peruano." />
-    <meta property="og:image" content="https://calculadoraliga1.lovable.app/logo.png" />
+    <meta property="og:url" content="https://www.liga1calc.pe/" />
+    <meta property="og:title" content="Calculadora Liga 1 2026 | Tabla de Posiciones, Acumulada y Pronósticos" />
+    <meta property="og:description" content="Simula la Liga 1 2026 partido por partido: tabla de posiciones del Apertura, Clausura y acumulada en vivo, con probabilidades de campeón, Libertadores y descenso." />
+    <!-- Served as .jpg: the file is JPEG data, and a .png extension makes some scrapers reject it. -->
+    <meta property="og:image" content="https://www.liga1calc.pe/og-image.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta property="og:locale" content="es_PE" />
     <meta property="og:site_name" content="Liga 1 Calc" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:url" content="https://calculadoraliga1.lovable.app/" />
-    <meta name="twitter:title" content="Liga 1 Calc - Simulador de Tabla de Posiciones 2026" />
-    <meta name="twitter:description" content="Simula los resultados de la Liga 1 2026. Predice al campeón, clasificados a Copa Libertadores y descenso con nuestra calculadora interactiva del fútbol peruano." />
-    <meta name="twitter:image" content="https://calculadoraliga1.lovable.app/logo.png" />
+    <meta name="twitter:url" content="https://www.liga1calc.pe/" />
+    <meta name="twitter:title" content="Calculadora Liga 1 2026 | Tabla de Posiciones, Acumulada y Pronósticos" />
+    <meta name="twitter:description" content="Simula la Liga 1 2026 partido por partido: tabla de posiciones del Apertura, Clausura y acumulada en vivo, con probabilidades de campeón, Libertadores y descenso." />
+    <meta name="twitter:image" content="https://www.liga1calc.pe/og-image.jpg" />
   </head>
 
   <body>
