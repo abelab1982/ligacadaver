@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,8 +84,20 @@ export const QuickScoreEntry = ({ onSaved }: QuickScoreEntryProps) => {
   const [saving, setSaving] = useState(false);
   const [markFinal, setMarkFinal] = useState(true);
 
+  /**
+   * Guards against two hazards when the selector changes: writing the previous
+   * round's rows because they were still on screen under the spinner, and a slow
+   * first request landing after a faster second one and overwriting it.
+   */
+  const requestRef = useRef(0);
+
   const loadRound = useCallback(async () => {
+    const token = ++requestRef.current;
     setLoading(true);
+    // Drop the old round immediately: rows the user can no longer see must not
+    // stay in state where the save button can still reach them.
+    setFixtures([]);
+    setDrafts({});
     try {
       const { data, error } = await supabase
         .from("fixtures")
@@ -96,17 +108,17 @@ export const QuickScoreEntry = ({ onSaved }: QuickScoreEntryProps) => {
         .order("id", { ascending: true });
 
       if (error) throw new Error(error.message);
+      if (token !== requestRef.current) return;
 
       const rows = (data ?? []) as QuickFixture[];
       setFixtures(rows);
       setDrafts(Object.fromEntries(rows.map((f) => [f.id, draftFrom(f)])));
     } catch (error) {
+      if (token !== requestRef.current) return;
       console.error("Quick entry load error:", error);
       toast.error("No se pudieron cargar los partidos de esa fecha");
-      setFixtures([]);
-      setDrafts({});
     } finally {
-      setLoading(false);
+      if (token === requestRef.current) setLoading(false);
     }
   }, [tournament, round]);
 
@@ -159,7 +171,7 @@ export const QuickScoreEntry = ({ onSaved }: QuickScoreEntryProps) => {
   }, [fixtures, drafts, markFinal]);
 
   const save = async () => {
-    if (writable.length === 0) return;
+    if (writable.length === 0 || loading) return;
 
     setSaving(true);
     try {
@@ -351,7 +363,7 @@ export const QuickScoreEntry = ({ onSaved }: QuickScoreEntryProps) => {
 
             <Button
               onClick={save}
-              disabled={saving || blocked || writable.length === 0}
+              disabled={saving || loading || blocked || writable.length === 0}
               className="w-full sm:w-auto"
             >
               {saving ? (
