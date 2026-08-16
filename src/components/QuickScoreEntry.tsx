@@ -185,11 +185,22 @@ export const QuickScoreEntry = ({ onSaved }: QuickScoreEntryProps) => {
             update.status = "FT";
             update.is_locked = true;
           }
-          const { error } = await supabase
+          // .select() matters: when RLS rejects an UPDATE, PostgREST does not
+          // return an error, it just updates zero rows and answers 204. Without
+          // asking for the affected row back we would cheerfully report success
+          // over a write that never happened — the worst possible failure here,
+          // because the admin walks away believing the matchday is loaded.
+          const { data, error } = await supabase
             .from("fixtures")
             .update(update)
-            .eq("id", fixture.id);
-          return error ? error.message : null;
+            .eq("id", fixture.id)
+            .select("id");
+
+          if (error) return error.message;
+          if (!data || data.length === 0) {
+            return `${fixture.id}: la base de datos no aceptó la escritura`;
+          }
+          return null;
         })
       );
 
