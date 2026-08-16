@@ -46,6 +46,7 @@ import {
   Settings
 } from "lucide-react";
 import { toast } from "sonner";
+import { QuickScoreEntry } from "@/components/QuickScoreEntry";
 
 interface Fixture {
   id: string;
@@ -380,6 +381,8 @@ export default function AdminPage() {
             </Button>
           </div>
         </div>
+
+        <QuickScoreEntry onSaved={fetchFixtures} />
 
         {/* Default Round Config */}
         <Card className="mb-6">
