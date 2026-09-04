@@ -14,6 +14,7 @@ import {
 import { CheckCircle, Loader2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { initialTeams } from "@/data/teams";
+import { useAppConfig } from "@/hooks/useAppConfig";
 
 /**
  * Bulk score entry for one matchday.
@@ -85,6 +86,74 @@ export const QuickScoreEntry = ({ onSaved }: QuickScoreEntryProps) => {
   const [markFinal, setMarkFinal] = useState(true);
 
   /**
+   * Open on the same matchday the public site is showing, which is the one the
+   * admin almost always wants to load.
+   *
+   * The round comes from the very same source the home page reads: MainLayout
+   * passes appConfig.defaultRoundA/C into useLiveLeagueEngine, and because those
+   * are always numbers the engine's auto-detect branch never runs. So the round
+   * on screen is exactly app_secrets.DEFAULT_ROUND_A/C — the values set in the
+   * card right below this one. Reusing the hook keeps the two in step instead of
+   * reimplementing a rule that would drift.
+   *
+   * The tournament mirrors the engine's own switch: Clausura only once Apertura
+   * is completely finished and Clausura is not.
+   */
+  const appConfig = useAppConfig();
+  const [tournamentReady, setTournamentReady] = useState(false);
+  const [frontTournament, setFrontTournament] = useState<"A" | "C">("A");
+  const [defaultsApplied, setDefaultsApplied] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("fixtures")
+          .select("tournament, status");
+        if (error) throw new Error(error.message);
+        if (!active) return;
+
+        const rows = data ?? [];
+        const apertura = rows.filter((r) => r.tournament === "A");
+        const clausura = rows.filter((r) => r.tournament === "C");
+        const aperturaDone = apertura.length > 0 && apertura.every((r) => r.status === "FT");
+        const clausuraPending = clausura.some((r) => r.status !== "FT");
+        // clausuraPending, not just "Clausura unfinished": if the Clausura
+        // calendar has not been loaded yet there is nothing to show, and landing
+        // on an empty tournament is worse than staying where the work is.
+        setFrontTournament(aperturaDone && clausuraPending ? "C" : "A");
+      } catch (error) {
+        // A failed probe is not worth an error toast: the card still works, it
+        // just opens on Apertura like before.
+        console.error("Quick entry tournament probe failed:", error);
+      } finally {
+        if (active) setTournamentReady(true);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Applied exactly once. After that the selectors belong to the user, and a
+  // late-arriving config must not yank them out from under a half-typed round.
+  useEffect(() => {
+    if (defaultsApplied) return;
+    if (appConfig.loading || !tournamentReady) return;
+    setTournament(frontTournament);
+    setRound(frontTournament === "C" ? appConfig.defaultRoundC : appConfig.defaultRoundA);
+    setDefaultsApplied(true);
+  }, [
+    defaultsApplied,
+    appConfig.loading,
+    appConfig.defaultRoundA,
+    appConfig.defaultRoundC,
+    tournamentReady,
+    frontTournament,
+  ]);
+
+  /**
    * Guards against two hazards when the selector changes: writing the previous
    * round's rows because they were still on screen under the spinner, and a slow
    * first request landing after a faster second one and overwriting it.
@@ -92,6 +161,9 @@ export const QuickScoreEntry = ({ onSaved }: QuickScoreEntryProps) => {
   const requestRef = useRef(0);
 
   const loadRound = useCallback(async () => {
+    // Wait for the defaults, otherwise the card would load round 1 and then
+    // immediately reload the real one, flashing the wrong matchday.
+    if (!defaultsApplied) return;
     const token = ++requestRef.current;
     setLoading(true);
     // Drop the old round immediately: rows the user can no longer see must not
@@ -120,7 +192,7 @@ export const QuickScoreEntry = ({ onSaved }: QuickScoreEntryProps) => {
     } finally {
       if (token === requestRef.current) setLoading(false);
     }
-  }, [tournament, round]);
+  }, [tournament, round, defaultsApplied]);
 
   useEffect(() => {
     loadRound();
@@ -269,7 +341,7 @@ export const QuickScoreEntry = ({ onSaved }: QuickScoreEntryProps) => {
           </div>
         </div>
 
-        {loading ? (
+        {loading || !defaultsApplied ? (
           <div className="py-8 text-center">
             <Loader2 className="w-6 h-6 animate-spin mx-auto" />
           </div>
